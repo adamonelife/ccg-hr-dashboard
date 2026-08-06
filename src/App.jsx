@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Login from './Login.jsx';
+import SetPassword from './SetPassword.jsx';
 import Directory from './pages/Directory.jsx';
 import EmployeeForm from './pages/EmployeeForm.jsx';
 import EmployeeCard from './pages/EmployeeCard.jsx';
@@ -7,13 +8,29 @@ import OrgChart from './pages/OrgChart.jsx';
 
 export default function App() {
   const [status, setStatus] = useState('checking'); // checking | authed | anon
+  // Reached via a one-time setup link (see EmployeeForm.jsx's "Login
+  // account" section) — works regardless of login state, since the whole
+  // point is there's no account/session yet.
+  const [setupToken] = useState(() => new URLSearchParams(window.location.search).get('setup'));
 
   useEffect(() => {
+    if (setupToken) return;
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => setStatus(data.authenticated ? 'authed' : 'anon'))
       .catch(() => setStatus('anon'));
-  }, []);
+  }, [setupToken]);
+
+  if (setupToken) {
+    return (
+      <SetPassword
+        token={setupToken}
+        onDone={() => {
+          window.location.href = '/';
+        }}
+      />
+    );
+  }
 
   if (status === 'checking') return null;
   if (status === 'anon') return <Login onLoggedIn={() => setStatus('authed')} />;

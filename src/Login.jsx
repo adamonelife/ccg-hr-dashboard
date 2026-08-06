@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 export default function Login({ onLoggedIn }) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -13,7 +14,7 @@ export default function Login({ onLoggedIn }) {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email: email || undefined, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -33,11 +34,18 @@ export default function Login({ onLoggedIn }) {
       <form onSubmit={handleSubmit} style={styles.form}>
         <h1 style={styles.title}>CCG HR</h1>
         <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email (leave blank for admin login)"
+          autoFocus
+          style={styles.input}
+        />
+        <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
-          autoFocus
           style={styles.input}
         />
         {error && <div style={styles.error}>{error}</div>}
