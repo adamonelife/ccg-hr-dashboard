@@ -13,8 +13,11 @@
 // go in RAW_BODY_ROUTES and get req.rawBody instead of req.body.
 
 import { handleHealth } from '../lib/health.mjs';
-import { handleLogin, handleLogout, handleMe, requireAuth } from '../lib/auth.mjs';
-// import { handleExample } from '../lib/example-sheets-handler.mjs'; // template — not wired in
+import { handleLogin, handleLogout, handleMe, requireAuth, requireRole } from '../lib/auth.mjs';
+import { handleEmployees } from '../lib/employees.mjs';
+import { handleOrgChart } from '../lib/org.mjs';
+import { handleSalaryHistory } from '../lib/salary-history.mjs';
+import { handlePromotionHistory } from '../lib/promotion-history.mjs';
 
 export const config = {
   api: { bodyParser: false },
@@ -33,7 +36,12 @@ const routes = {
   'auth/login': handleLogin,
   'auth/logout': handleLogout,
   'auth/me': handleMe,
-  // 'example': requireAuth(handleExample),
+
+  // Phase 1 — Employee Directory / Employment / Organisation Structure
+  employees: requireAuth(handleEmployees),
+  'org-chart': requireAuth(handleOrgChart),
+  'salary-history': requireRole('administrator', 'hr', 'finance')(handleSalaryHistory),
+  'promotion-history': requireRole('administrator', 'hr')(handlePromotionHistory),
 };
 
 async function readRawBody(req) {
