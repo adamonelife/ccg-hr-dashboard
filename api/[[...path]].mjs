@@ -27,6 +27,7 @@ import { handlePromotionHistory } from '../lib/promotion-history.mjs';
 import { handleSkills } from '../lib/skills.mjs';
 import { handleMigrateFromSheets } from '../lib/migrate.mjs';
 import { handleAccounts } from '../lib/accounts.mjs';
+import { handleLeaveBalances, handleLeaveRequests } from '../lib/leave.mjs';
 
 export const config = {
   api: { bodyParser: false },
@@ -74,6 +75,12 @@ const routes = {
 
   // Phase 3 — who has a login. See lib/accounts.mjs.
   'admin/accounts': requireRole('Administrator')(handleAccounts),
+
+  // Phase 3 — Leave Management. Both requireAuth, not requireRole — fine-
+  // grained checks (who can view/submit/approve what) live inside
+  // lib/leave.mjs itself, same pattern as skills/org-units.
+  'leave-requests': requireAuth(handleLeaveRequests),
+  'leave-balances': requireAuth(handleLeaveBalances),
 };
 
 async function readRawBody(req) {
