@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
+// Keep in sync with the CHECK constraint on skills.level in db/schema.sql.
+const LEVELS = ['', '0', '1', '2', '3', '4', '5'];
+
 // Keep in sync with CATEGORIES in lib/skills.mjs.
 const CATEGORIES = [
   'Software Skill',
@@ -78,12 +81,8 @@ export default function EmployeeCard({ employeeId, onBack, onEdit }) {
             <h3 style={styles.sectionTitle}>{cat}</h3>
             {byCategory[cat]?.length > 0 ? (
               <ul style={styles.list}>
-                {byCategory[cat].map((s, i) => (
-                  <li key={i}>
-                    <strong>{s.item}</strong>
-                    {s.level && ` — ${s.level}`}
-                    {s.notes && <span style={styles.notes}> ({s.notes})</span>}
-                  </li>
+                {byCategory[cat].map((s) => (
+                  <SkillRow key={s.id} entry={s} onChanged={load} />
                 ))}
               </ul>
             ) : (
@@ -142,12 +141,13 @@ function AddSkillForm({ employeeId, onAdded }) {
           onChange={(e) => setItem(e.target.value)}
           style={{ ...styles.input, flex: 2 }}
         />
-        <input
-          placeholder="Level (optional)"
-          value={level}
-          onChange={(e) => setLevel(e.target.value)}
-          style={styles.input}
-        />
+        <select value={level} onChange={(e) => setLevel(e.target.value)} style={styles.input}>
+          {LEVELS.map((l) => (
+            <option key={l} value={l}>
+              {l === '' ? 'Level (n/a)' : l}
+            </option>
+          ))}
+        </select>
         <input
           placeholder="Notes (optional)"
           value={notes}
@@ -159,6 +159,101 @@ function AddSkillForm({ employeeId, onAdded }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function SkillRow({ entry, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const [category, setCategory] = useState(entry.category);
+  const [item, setItem] = useState(entry.item);
+  const [level, setLevel] = useState(entry.level || '');
+  const [notes, setNotes] = useState(entry.notes || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSave(e) {
+    e.preventDefault();
+    if (!item.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      await api.updateSkillEntry({ id: entry.id, category, item, level, notes });
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Remove "${entry.item}"?`)) return;
+    setSaving(true);
+    setError('');
+    try {
+      await api.deleteSkillEntry(entry.id);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <li style={styles.editRow}>
+        <form onSubmit={handleSave} style={styles.addFormRow}>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={styles.input}>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <input value={item} onChange={(e) => setItem(e.target.value)} style={{ ...styles.input, flex: 2 }} />
+          <select value={level} onChange={(e) => setLevel(e.target.value)} style={styles.input}>
+            {LEVELS.map((l) => (
+              <option key={l} value={l}>
+                {l === '' ? 'Level (n/a)' : l}
+              </option>
+            ))}
+          </select>
+          <input
+            placeholder="Notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            style={{ ...styles.input, flex: 2 }}
+          />
+          <button type="submit" disabled={saving} style={styles.addButton}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" onClick={() => setEditing(false)} style={styles.cancelButton}>
+            Cancel
+          </button>
+        </form>
+        {error && <p style={styles.error}>{error}</p>}
+      </li>
+    );
+  }
+
+  return (
+    <li style={styles.skillRow}>
+      <span>
+        <strong>{entry.item}</strong>
+        {entry.level && ` — ${entry.level}`}
+        {entry.notes && <span style={styles.notes}> ({entry.notes})</span>}
+      </span>
+      <span style={styles.rowActions}>
+        <button onClick={() => setEditing(true)} style={styles.rowButton}>
+          Edit
+        </button>
+        <button onClick={handleDelete} disabled={saving} style={styles.rowButton}>
+          Delete
+        </button>
+      </span>
+      {error && <p style={styles.error}>{error}</p>}
+    </li>
   );
 }
 
@@ -207,11 +302,11 @@ const styles = {
   },
   section: { marginBottom: 16, borderTop: '1px solid #eee', paddingTop: 12 },
   sectionTitle: { fontSize: 14, margin: '0 0 6px 0' },
-  list: { margin: 0, paddingLeft: 20, fontSize: 14 },
+  list: { margin: 0, paddingLeft: 0, fontSize: 14, listStyle: 'none' },
   notes: { color: '#777' },
   empty: { fontSize: 13, color: '#aaa', margin: 0 },
   addForm: { borderTop: '1px solid #eee', paddingTop: 12, marginTop: 8 },
-  addFormRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
+  addFormRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   input: { padding: 8, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, flex: 1 },
   addButton: {
     padding: '8px 16px',
@@ -220,6 +315,31 @@ const styles = {
     borderRadius: 4,
     background: '#111',
     color: '#fff',
+    cursor: 'pointer',
+  },
+  skillRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    padding: '4px 0',
+  },
+  rowActions: { display: 'flex', gap: 6, flexShrink: 0 },
+  rowButton: {
+    padding: '3px 8px',
+    fontSize: 12,
+    border: '1px solid #ccc',
+    borderRadius: 4,
+    background: '#fff',
+    cursor: 'pointer',
+  },
+  editRow: { padding: '4px 0' },
+  cancelButton: {
+    padding: '8px 16px',
+    fontSize: 13,
+    border: '1px solid #ccc',
+    borderRadius: 4,
+    background: '#fff',
     cursor: 'pointer',
   },
   error: { color: '#c00' },
