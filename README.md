@@ -6,9 +6,10 @@ budget. Will eventually feed a summary into Ops Dash via a small API,
 mirroring the existing Xero/HubSpot integration pattern, without Ops Dash
 holding sensitive records itself.
 
-This is a scaffold. No HR features are built yet — just the plumbing, copied
-from the patterns proven in Ops Dash so the first real feature can be built
-fast and consistent.
+Phase 1 (Employee Directory, Employment, Organisation Structure, Permissions
+groundwork) is built. See `ROADMAP.md` for what's next and `SETUP.md` for
+the one manual step required before Phase 1 goes live: creating and sharing
+the Google Sheet it reads/writes.
 
 ## Structure
 
@@ -18,12 +19,26 @@ api/[[...path]].mjs   the only file in /api — catch-all router (stays under
 lib/                   real handlers, one file per concern, registered in
                        the router's `routes` object
 lib/auth.mjs           session auth (single password, HMAC-signed httpOnly
-                       cookie) — see "Auth" below
+                       cookie, role on the session) — see "Auth" below
+lib/sheets-client.mjs  shared Google Sheets client (JWT auth + read/append/
+                       targeted-update helpers). Unlike Ops Dash, which
+                       duplicates this boilerplate per file, HR centralizes
+                       it — this app has enough Sheets-backed modules that
+                       duplicating token logic would be a bug magnet.
+lib/employees.mjs      Employee Directory + Employment (Phase 1)
+lib/salary-history.mjs append-only salary log, syncs current_salary back to
+                       the employee record
+lib/promotion-history.mjs
+                       append-only promotion log, syncs job_title back
+lib/org.mjs            Organisation Structure — company/department/team
+                       tree + flat reporting lines
 lib/example-sheets-handler.mjs
-                       TEMPLATE, not wired in. Copy it when you build the
-                       first feature that touches a Google Sheet.
+                       superseded by sheets-client.mjs, kept only as a raw
+                       JWT-pattern reference
 src/                   Vite + React frontend. App.jsx checks /api/auth/me on
-                       load and shows Login.jsx if unauthenticated.
+                       load and shows Login.jsx if unauthenticated; once
+                       logged in it's a simple 3-view nav (Directory,
+                       employee add/edit form, Org chart).
 ```
 
 ## Auth
@@ -42,15 +57,21 @@ routes['leave/requests'] = requireAuth(handleLeaveRequests);
 
 **When Yasmin/Gloria need their own logins:** replace the single
 `ADMIN_PASSWORD` check in `lib/auth.mjs` with a per-user lookup (a "Users"
-tab in a Sheet is enough at this scale), and add a `role` field to the
-session payload so handlers can gate finance-only vs. HR-only data.
+tab in a Sheet is enough at this scale). The `role` field already exists on
+the session payload (Adam's session is hard-coded to `role: 'administrator'`
+today) and `requireRole(...roles)` in `lib/auth.mjs` is already wired up —
+extending to multi-user is mostly about the login/lookup step, not the
+permission-checking plumbing.
 
 ## Adding a new endpoint
 
-1. Write the handler in `lib/whatever.mjs` (copy `lib/example-sheets-handler.mjs`
-   if it needs Google Sheets).
+1. Write the handler in `lib/whatever.mjs`, importing from
+   `lib/sheets-client.mjs` if it needs Google Sheets (see `lib/employees.mjs`
+   for the pattern: define a headers array matching the sheet tab, use
+   `readRange`/`appendRow`/`updateRow`).
 2. Import it in `api/[[...path]].mjs` and add it to the `routes` object,
-   wrapped in `requireAuth(...)` unless it's genuinely public.
+   wrapped in `requireAuth(...)` or `requireRole(...)(...)` unless it's
+   genuinely public.
 3. If it needs the raw body (webhook signature verification), add its route
    name to `RAW_BODY_ROUTES`.
 
@@ -98,4 +119,6 @@ each on Hobby).
 ## Env vars
 
 See `.env.example`. At minimum for the scaffold to boot: `ADMIN_PASSWORD`,
-`SESSION_SECRET`.
+`SESSION_SECRET`. Phase 1 additionally needs `GOOGLE_CLIENT_EMAIL`,
+`GOOGLE_PRIVATE_KEY`, and `HR_SHEET_ID` — see `SETUP.md` for creating and
+sharing the sheet.
