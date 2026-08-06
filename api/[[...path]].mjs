@@ -25,6 +25,7 @@ import { handleOrgChart, handleOrgUnits } from '../lib/org.mjs';
 import { handleSalaryHistory } from '../lib/salary-history.mjs';
 import { handlePromotionHistory } from '../lib/promotion-history.mjs';
 import { handleSkills } from '../lib/skills.mjs';
+import { handleMigrateFromSheets } from '../lib/migrate.mjs';
 
 export const config = {
   api: { bodyParser: false },
@@ -51,6 +52,11 @@ const routes = {
   'salary-history': requireRole('administrator', 'hr', 'finance')(handleSalaryHistory),
   'promotion-history': requireRole('administrator', 'hr')(handlePromotionHistory),
   skills: requireAuth(handleSkills),
+
+  // One-time admin operation: copies the old HR Google Sheet into Postgres.
+  // GET so it can be triggered by visiting the URL directly in a browser
+  // tab while logged in — see lib/migrate.mjs for the safety/re-run notes.
+  'admin/migrate-from-sheets': requireRole('administrator')(handleMigrateFromSheets),
 };
 
 async function readRawBody(req) {
