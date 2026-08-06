@@ -22,6 +22,7 @@ export const api = {
   updateEmployee: (data) => request('employees', { method: 'PATCH', body: JSON.stringify(data) }),
 
   orgChart: () => request('org-chart'),
+  orgUnits: () => request('org-units'),
 
   salaryHistory: (employeeId) => request(`salary-history?employeeId=${encodeURIComponent(employeeId)}`),
   addSalaryEntry: (data) => request('salary-history', { method: 'POST', body: JSON.stringify(data) }),
