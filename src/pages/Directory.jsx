@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
-export default function Directory({ onOpen, onAdd }) {
+export default function Directory({ onOpen, onOpenCard, onAdd }) {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,6 +59,7 @@ export default function Directory({ onOpen, onAdd }) {
               <th style={styles.th}>Team</th>
               <th style={styles.th}>Status</th>
               <th style={styles.th}>Start date</th>
+              <th style={styles.th}></th>
             </tr>
           </thead>
           <tbody>
@@ -72,11 +73,22 @@ export default function Directory({ onOpen, onAdd }) {
                 <td style={styles.td}>{e.team}</td>
                 <td style={styles.td}>{e.employment_status}</td>
                 <td style={styles.td}>{e.start_date}</td>
+                <td style={styles.td}>
+                  <button
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      onOpenCard(e.employee_id);
+                    }}
+                    style={styles.cardButton}
+                  >
+                    View card
+                  </button>
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td style={styles.td} colSpan={8}>
+                <td style={styles.td} colSpan={9}>
                   No employees yet.
                 </td>
               </tr>
@@ -105,4 +117,12 @@ const styles = {
   td: { padding: '8px 10px', borderBottom: '1px solid #eee' },
   row: { cursor: 'pointer' },
   error: { color: '#c00' },
+  cardButton: {
+    padding: '4px 10px',
+    fontSize: 12,
+    border: '1px solid #ccc',
+    borderRadius: 4,
+    background: '#fff',
+    cursor: 'pointer',
+  },
 };
