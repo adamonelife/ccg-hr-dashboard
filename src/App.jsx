@@ -5,6 +5,7 @@ import Directory from './pages/Directory.jsx';
 import EmployeeForm from './pages/EmployeeForm.jsx';
 import EmployeeCard from './pages/EmployeeCard.jsx';
 import OrgChart from './pages/OrgChart.jsx';
+import Leave from './pages/Leave.jsx';
 
 export default function App() {
   const [status, setStatus] = useState('checking'); // checking | authed | anon
@@ -81,6 +82,9 @@ function Dashboard({ session, onLoggedOut }) {
         <NavLink active={view.name === 'orgchart'} onClick={() => setView({ name: 'orgchart' })}>
           Org chart
         </NavLink>
+        <NavLink active={view.name === 'leave'} onClick={() => setView({ name: 'leave' })}>
+          Leave
+        </NavLink>
       </nav>
 
       {view.name === 'directory' && (
@@ -109,6 +113,8 @@ function Dashboard({ session, onLoggedOut }) {
       )}
 
       {view.name === 'orgchart' && <OrgChart role={session?.role} />}
+
+      {view.name === 'leave' && <Leave session={session} />}
     </div>
   );
 }
