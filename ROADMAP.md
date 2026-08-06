@@ -107,29 +107,49 @@ need shows up.
 - **Recruitment (Phase 8):** build custom, or keep pipelines in
   Monday.com and skip this module? Worth deciding closer to Phase 8 rather
   than now.
-- **Multi-user access:** currently Adam-only login (see `lib/auth.mjs`).
-  No longer a "someday" question — Phase 3 (Leave approvals) genuinely
-  requires it, since approvals only make sense if the approver and
-  requester are different logged-in people. Login mechanism decided:
-  magic link via email for first-time account setup, letting each person
-  create their own password from there rather than logging in via magic
-  link every time. Not yet built.
+- ~~Multi-user access~~ *(built — see Status below)* — real per-person
+  login now exists alongside the original Adam-only master password. Login
+  mechanism ended up simpler than the original magic-link-via-email plan:
+  no email sending is wired up at all (deliberate call, to avoid taking on
+  email infrastructure — Resend/Google Workspace delegation/etc. — before
+  it's actually needed). An admin generates a one-time setup link
+  (`lib/accounts.mjs`) and shares it manually (Slack, WhatsApp, whatever);
+  the person visits it once to set their own password
+  (`POST /api/auth/set-password`), then logs in normally with email +
+  password from then on. Revisit real email delivery if manual sharing
+  becomes annoying at higher headcount.
 
-### Permission model for multi-user login (decided, not yet built)
+### Permission model for multi-user login (built)
 
-- **Employee:** can view only their own record. Read-only — no direct
-  editing of their own data, but can submit an edit request for someone
-  with appropriate permission to action (rather than editing the source of
-  truth directly). No visibility into anyone else's data, the directory, or
-  the org chart beyond their own entry.
-- **Main Lead:** can approve leave requests for their own team.
-- **Operations / Executive:** can approve leave requests for anyone,
-  regardless of team.
-- Maps onto the existing `permission_role` field on the Employees sheet
+- **Card/profile visibility** follows the org chart, not a flat role
+  check: a Team's lead sees that team; a Department's lead sees everyone
+  nested under it (all its teams, sub-departments, etc.); scales up the
+  same way to Company/Group. Driven by `org_units.lead_employee_id` (set
+  via the Org Chart page's "Assign lead" control) with a recursive lookup
+  down the tree — see `lib/permissions.mjs`. `Administrator`/`Director`/`HR`
+  see everyone, no scoping needed.
+- **Scope of what's actually gated today:** the Employee Card and the
+  "Edit full profile" page (`lib/employees.mjs`, `lib/skills.mjs`). The
+  Directory list and Org Chart tree are **not** scoped yet — everyone
+  authenticated still sees the full list/tree (names, titles, departments),
+  just not full profile/skills detail outside their scope. Directory-wide
+  restriction (e.g. a plain Employee seeing only their own row) is a
+  separate, not-yet-built piece.
+- **Employee role self-service (view own record read-only, submit edit
+  requests rather than editing directly):** not yet built — a plain
+  Employee-role account can currently edit their own record like anyone
+  else within their own scope. Worth tightening before rolling accounts
+  out beyond leads.
+- **Main Lead / Operations / Executive approving leave for their scope:**
+  still pending — this permission model only covers card/profile
+  visibility so far, not leave approval routing (that's Phase 3's Leave
+  Management piece, not yet built).
+- Maps onto the existing `permission_role` field on `employees`
   (`Employee`, `Team Lead`, `Main Lead`, `HR`, `Finance`, `Director`,
-  `Administrator`) — exact implementation (e.g. how "their team" resolves
-  for a Main Lead — direct reports only, or the full chain beneath them)
-  still needs nailing down when Phase 3 is actually built.
+  `Administrator`) — role casing had to be normalized to match this exactly
+  everywhere (`requireRole(...)` calls, the master-admin bootstrap session)
+  since real per-person sessions now carry whatever's actually in that
+  column.
 
 ## Status
 
@@ -137,31 +157,30 @@ need shows up.
 - [x] Phase 1 — Employee Directory + Employment + Org Structure + Permissions
       (built on Sheets originally; being migrated to Postgres, see below)
 - [x] Employee Card (built on Sheets originally; being migrated to Postgres)
-- [ ] **Sheets → Postgres migration** (in progress)
-  - [x] Schema designed (`db/schema.sql`) — employees, org_units, skills,
-        salary_history, promotion_history, plus placeholder tables for
-        documents, disciplinary_records, leave_balances, leave_requests,
-        user_accounts
-  - [x] Schema applied to Supabase (Adam — confirmed "Success. No rows
-        returned")
-  - [x] `lib/employees.mjs`, `lib/org.mjs`, `lib/skills.mjs`,
-        `lib/salary-history.mjs`, `lib/promotion-history.mjs` rewritten for
-        SQL (`lib/db.mjs` added as the shared connection/coercion helper).
-        API contract unchanged — no frontend files needed to change.
-  - [x] Migration script written (`db/migrate-from-sheets.mjs`) — not yet
-        run; depends on whether there's real Sheets data worth copying
-  - [ ] Pooled `DATABASE_URL` added to Vercel (Adam)
-  - [ ] `npm install` run locally/on deploy to pull in the new `postgres`
-        dependency
-  - [ ] Migration script run, if there's existing Sheets data to bring over
-  - [ ] Frontend re-verified against the new backend (Directory, Employee
-        Card, Org Chart, add/edit flows)
-  - [ ] Delete stray `api/index.mjs` (dead file from an earlier abandoned
-        routing fix — `api/[[...path]].mjs` is the real router) and
-        `lib/example-sheets-handler.mjs` (superseded scaffold example) from
-        the repo
+- [x] **Sheets → Postgres migration** — done. Schema designed and applied,
+      `DATABASE_URL` set in Vercel, `lib/employees.mjs`/`org.mjs`/
+      `skills.mjs`/`salary-history.mjs`/`promotion-history.mjs` rewritten
+      for SQL, existing Sheets data migrated via the one-time admin
+      endpoint (`GET /api/admin/migrate-from-sheets`,
+      `lib/migrate.mjs`/`db/migrate-from-sheets.mjs`), frontend verified
+      live.
+  - [ ] Still outstanding: delete stray `api/index.mjs` (dead file from an
+        earlier abandoned routing fix) and `lib/example-sheets-handler.mjs`
+        (superseded scaffold example) from the repo — harmless left as-is,
+        just clutter
+- [x] Org structure management — add/delete companies/departments/teams
+      and assign a lead per unit, all from the Org Chart page
+      (`lib/org.mjs`, `src/pages/OrgChart.jsx`) — no more hand-editing a
+      sheet for this.
+- [x] Employee Card edit/delete — skill entries can be corrected or removed
+      after adding, not just appended (`lib/skills.mjs` PATCH/DELETE,
+      `SkillRow` in `EmployeeCard.jsx`). Skill level is now a controlled
+      0–5 scale, not free text.
 - [ ] Phase 2 — Notifications + Documents + Disciplinary Records
-- [ ] Phase 3 — Multi-user login + Leave Management
+- [x] Phase 3 — Multi-user login (see permission model notes above) — real
+      per-person accounts, password auth, org-chart-based Employee Card
+      visibility scoping. Leave Management itself (the other half of
+      Phase 3) not yet built.
 - [ ] Phase 4 — Dashboards
 - [ ] Phase 5 — Equipment Register, Notes, Policies
 - [ ] Phase 6 — Performance Reviews, Skills Matrix, Training, Career Progression
