@@ -23,6 +23,13 @@ export const api = {
 
   orgChart: () => request('org-chart'),
   orgUnits: () => request('org-units'),
+  createOrgUnit: (data) => request('org-units', { method: 'POST', body: JSON.stringify(data) }),
+  assignOrgUnitLead: (unitName, leadEmployeeId) =>
+    request('org-units', {
+      method: 'PATCH',
+      body: JSON.stringify({ unit_name: unitName, lead_employee_id: leadEmployeeId }),
+    }),
+  deleteOrgUnit: (unitName) => request(`org-units?unit_name=${encodeURIComponent(unitName)}`, { method: 'DELETE' }),
 
   salaryHistory: (employeeId) => request(`salary-history?employeeId=${encodeURIComponent(employeeId)}`),
   addSalaryEntry: (data) => request('salary-history', { method: 'POST', body: JSON.stringify(data) }),
@@ -33,4 +40,6 @@ export const api = {
 
   skills: (employeeId) => request(`skills?employeeId=${encodeURIComponent(employeeId)}`),
   addSkillEntry: (data) => request('skills', { method: 'POST', body: JSON.stringify(data) }),
+  updateSkillEntry: (data) => request('skills', { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteSkillEntry: (id) => request(`skills?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
