@@ -24,7 +24,7 @@ export default function Directory({ onOpen, onAdd }) {
   const filtered = employees.filter((e) => {
     const q = query.toLowerCase();
     if (!q) return true;
-    return [e.full_name, e.employee_id, e.department, e.team, e.job_title]
+    return [e.full_name, e.nickname, e.employee_id, e.department, e.team, e.job_title]
       .join(' ')
       .toLowerCase()
       .includes(q);
@@ -52,6 +52,7 @@ export default function Directory({ onOpen, onAdd }) {
           <thead>
             <tr>
               <th style={styles.th}>Name</th>
+              <th style={styles.th}>Nickname</th>
               <th style={styles.th}>Employee ID</th>
               <th style={styles.th}>Job title</th>
               <th style={styles.th}>Department</th>
@@ -64,6 +65,7 @@ export default function Directory({ onOpen, onAdd }) {
             {filtered.map((e) => (
               <tr key={e.employee_id} onClick={() => onOpen(e.employee_id)} style={styles.row}>
                 <td style={styles.td}>{e.full_name}</td>
+                <td style={styles.td}>{e.nickname}</td>
                 <td style={styles.td}>{e.employee_id}</td>
                 <td style={styles.td}>{e.job_title}</td>
                 <td style={styles.td}>{e.department}</td>
@@ -74,7 +76,7 @@ export default function Directory({ onOpen, onAdd }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td style={styles.td} colSpan={7}>
+                <td style={styles.td} colSpan={8}>
                   No employees yet.
                 </td>
               </tr>
