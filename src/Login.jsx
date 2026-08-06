@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Logo from './Logo.jsx';
 
 export default function Login({ onLoggedIn }) {
   const [email, setEmail] = useState('');
@@ -32,7 +33,9 @@ export default function Login({ onLoggedIn }) {
   return (
     <div style={styles.wrap}>
       <form onSubmit={handleSubmit} style={styles.form}>
-        <h1 style={styles.title}>CCG HR</h1>
+        <div style={styles.logoRow}>
+          <Logo height={36} />
+        </div>
         <input
           type="email"
           value={email}
@@ -76,7 +79,7 @@ const styles = {
     borderRadius: 8,
     boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
   },
-  title: { margin: 0, marginBottom: 8, fontSize: 20 },
+  logoRow: { display: 'flex', justifyContent: 'center', marginBottom: 8 },
   input: { padding: 10, fontSize: 14, border: '1px solid #ccc', borderRadius: 4 },
   button: {
     padding: 10,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Login from './Login.jsx';
 import SetPassword from './SetPassword.jsx';
+import Logo from './Logo.jsx';
 import Directory from './pages/Directory.jsx';
 import EmployeeForm from './pages/EmployeeForm.jsx';
 import EmployeeCard from './pages/EmployeeCard.jsx';
@@ -51,7 +52,21 @@ export default function App() {
     );
   }
 
-  if (status === 'checking') return null;
+  if (status === 'checking') {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          background: '#f5f5f5',
+        }}
+      >
+        <Logo height={40} />
+      </div>
+    );
+  }
   if (status === 'anon') return <Login onLoggedIn={loadSession} />;
 
   return <Dashboard session={session} onLoggedOut={() => { setSession(null); setStatus('anon'); }} />;
@@ -71,7 +86,7 @@ function Dashboard({ session, onLoggedOut }) {
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}>CCG HR</h1>
+        <Logo height={28} />
         <button onClick={handleLogout}>Log out</button>
       </div>
 

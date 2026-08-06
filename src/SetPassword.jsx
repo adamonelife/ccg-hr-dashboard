@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from './lib/api.js';
+import Logo from './Logo.jsx';
 
 // Reached via a one-time link an admin generates and shares manually (see
 // EmployeeForm.jsx's "Login account" section) — /?setup=<token>. No
@@ -38,7 +39,9 @@ export default function SetPassword({ token, onDone }) {
     return (
       <div style={styles.wrap}>
         <div style={styles.form}>
-          <h1 style={styles.title}>CCG HR</h1>
+          <div style={styles.logoRow}>
+            <Logo height={36} />
+          </div>
           <p>Password set. You can log in now.</p>
           <button onClick={onDone} style={styles.button}>
             Go to login
@@ -96,6 +99,7 @@ const styles = {
     boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
   },
   title: { margin: 0, marginBottom: 8, fontSize: 18 },
+  logoRow: { display: 'flex', justifyContent: 'center', marginBottom: 8 },
   input: { padding: 10, fontSize: 14, border: '1px solid #ccc', borderRadius: 4 },
   button: {
     padding: 10,
