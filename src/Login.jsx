@@ -34,7 +34,7 @@ export default function Login({ onLoggedIn }) {
     <div style={styles.wrap}>
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.logoRow}>
-          <Logo height={36} />
+          <Logo height={54} />
         </div>
         <input
           type="email"

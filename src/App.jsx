@@ -63,7 +63,7 @@ export default function App() {
           background: '#f5f5f5',
         }}
       >
-        <Logo height={40} />
+        <Logo height={60} />
       </div>
     );
   }
@@ -86,7 +86,7 @@ function Dashboard({ session, onLoggedOut }) {
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Logo height={28} />
+        <Logo height={42} />
         <button onClick={handleLogout}>Log out</button>
       </div>
 
