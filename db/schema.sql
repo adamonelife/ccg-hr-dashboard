@@ -84,7 +84,7 @@ CREATE TABLE employees (
   date_of_birth                   DATE,
   nationality                     TEXT,
   religion                        TEXT CHECK (religion IN (
-                                     'Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu', 'Other'
+                                     'Islam', 'Kristen', 'Katholik', 'Hindu', 'Buddha', 'Konghucu', 'NA'
                                    )),
   employment_status               TEXT NOT NULL DEFAULT 'Active' CHECK (employment_status IN (
                                      'Active', 'On Leave', 'Notice Period', 'Terminated', 'Resigned'
