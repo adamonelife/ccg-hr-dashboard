@@ -30,4 +30,7 @@ export const api = {
   promotionHistory: (employeeId) =>
     request(`promotion-history?employeeId=${encodeURIComponent(employeeId)}`),
   addPromotionEntry: (data) => request('promotion-history', { method: 'POST', body: JSON.stringify(data) }),
+
+  skills: (employeeId) => request(`skills?employeeId=${encodeURIComponent(employeeId)}`),
+  addSkillEntry: (data) => request('skills', { method: 'POST', body: JSON.stringify(data) }),
 };
