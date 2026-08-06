@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
-export default function Directory({ onOpen, onOpenCard, onAdd }) {
+// "Operations and Executives" = Administrator + Director (see ROADMAP.md's
+// permission model notes — Administrator is effectively the operations-lead
+// access level today, Director covers execs). Kept as plain arrays here
+// rather than importing from a shared lib, since this is UI-only visibility
+// (see note below) — the source of truth for anything that's actually
+// enforced lives server-side in lib/permissions.mjs and lib/employees.mjs.
+const CAN_SEE_CARD_AND_SENSITIVE_COLUMNS = ['Administrator', 'Director'];
+const CAN_ADD_EMPLOYEE = ['Administrator', 'Director', 'HR', 'Finance'];
+
+export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+
+  const showSensitive = CAN_SEE_CARD_AND_SENSITIVE_COLUMNS.includes(role);
+  const showAdd = CAN_ADD_EMPLOYEE.includes(role);
 
   useEffect(() => {
     load();
@@ -30,6 +42,8 @@ export default function Directory({ onOpen, onOpenCard, onAdd }) {
       .includes(q);
   });
 
+  const columnCount = 6 + (showSensitive ? 3 : 0); // Name, Nickname, Job title, Department, Team, Status [+ Employee ID, Start date, card button]
+
   return (
     <div>
       <div style={styles.toolbar}>
@@ -39,9 +53,11 @@ export default function Directory({ onOpen, onOpenCard, onAdd }) {
           onChange={(e) => setQuery(e.target.value)}
           style={styles.search}
         />
-        <button onClick={onAdd} style={styles.addButton}>
-          + Add employee
-        </button>
+        {showAdd && (
+          <button onClick={onAdd} style={styles.addButton}>
+            + Add employee
+          </button>
+        )}
       </div>
 
       {loading && <p>Loading…</p>}
@@ -53,13 +69,13 @@ export default function Directory({ onOpen, onOpenCard, onAdd }) {
             <tr>
               <th style={styles.th}>Name</th>
               <th style={styles.th}>Nickname</th>
-              <th style={styles.th}>Employee ID</th>
+              {showSensitive && <th style={styles.th}>Employee ID</th>}
               <th style={styles.th}>Job title</th>
               <th style={styles.th}>Department</th>
               <th style={styles.th}>Team</th>
               <th style={styles.th}>Status</th>
-              <th style={styles.th}>Start date</th>
-              <th style={styles.th}></th>
+              {showSensitive && <th style={styles.th}>Start date</th>}
+              {showSensitive && <th style={styles.th}></th>}
             </tr>
           </thead>
           <tbody>
@@ -67,28 +83,30 @@ export default function Directory({ onOpen, onOpenCard, onAdd }) {
               <tr key={e.employee_id} onClick={() => onOpen(e.employee_id)} style={styles.row}>
                 <td style={styles.td}>{e.full_name}</td>
                 <td style={styles.td}>{e.nickname}</td>
-                <td style={styles.td}>{e.employee_id}</td>
+                {showSensitive && <td style={styles.td}>{e.employee_id}</td>}
                 <td style={styles.td}>{e.job_title}</td>
                 <td style={styles.td}>{e.department}</td>
                 <td style={styles.td}>{e.team}</td>
                 <td style={styles.td}>{e.employment_status}</td>
-                <td style={styles.td}>{e.start_date}</td>
-                <td style={styles.td}>
-                  <button
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      onOpenCard(e.employee_id);
-                    }}
-                    style={styles.cardButton}
-                  >
-                    View card
-                  </button>
-                </td>
+                {showSensitive && <td style={styles.td}>{e.start_date}</td>}
+                {showSensitive && (
+                  <td style={styles.td}>
+                    <button
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onOpenCard(e.employee_id);
+                      }}
+                      style={styles.cardButton}
+                    >
+                      View card
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td style={styles.td} colSpan={9}>
+                <td style={styles.td} colSpan={columnCount}>
                   No employees yet.
                 </td>
               </tr>
