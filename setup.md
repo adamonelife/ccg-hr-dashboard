@@ -18,16 +18,19 @@ One row per employee. This is the core record everything else hangs off.
 Row 1 headers (columns A onward, in this order):
 
 ```
-employee_id | full_name | photo_url | email | phone | emergency_contact_name | emergency_contact_phone | emergency_contact_relationship | date_of_birth | nationality | religion | employment_status | start_date | end_date | company | department | job_title | team | team_lead_id | main_lead_id | manager_id | office_location | employment_type | contract_type | contract_start | contract_end | probation_end_date | current_salary | salary_currency | bonus_eligible | kitas_expiry | passport_expiry | work_permit_expiry | role | active | created_at | updated_at
+employee_id | full_name | photo_url | email | phone | emergency_contact_name | emergency_contact_phone | emergency_contact_relationship | date_of_birth | nationality | religion | employment_status | start_date | end_date | company | department | job_title | team | manager_id | office_location | employment_type | contract_type | contract_start | contract_end | probation_end_date | current_salary | salary_currency | bonus_eligible | kitas_expiry | passport_expiry | work_permit_expiry | permission_role | created_at | updated_at
 ```
 
 Notes:
 - `employee_id`: pick a convention now (e.g. `CCG-001`) — it's the primary
   key used everywhere else (salary history, promotion history, reporting
   lines).
-- `team_lead_id` / `main_lead_id` / `manager_id`: these hold another row's
-  `employee_id`, not a name — lets the org chart and reporting lines resolve
-  names dynamically.
+- `manager_id`: another row's `employee_id`, not a name — this is the only
+  reporting-line field (no separate team-lead/main-lead fields; they'd have
+  been redundant with `manager_id` plus `team`). Blank if someone has no
+  single direct manager (e.g. a flat leadership team) — they just won't
+  appear in the flat reporting-lines view, but still show up grouped under
+  their `team` on the org chart tree.
 - `photo_url`: leave blank for now: this becomes a Google Drive link once
   Phase 2 (Documents) wires up Drive storage.
 - `religion`: needed for Indonesian THR (Tunjangan Hari Raya) — the
@@ -36,13 +39,28 @@ Notes:
   Free text, matching Indonesia's officially recognized categories is
   sensible (Islam, Kristen, Katolik, Hindu, Buddha, Konghucu) but not
   enforced by the code.
-- `role`: one of `Employee`, `Team Lead`, `Main Lead`, `HR`, `Finance`,
-  `Director`, `Administrator` — groundwork for permissions. Only Adam has an
-  actual login today, so this doesn't gate anything yet, but the field
-  should be filled in as employees are added so it's ready when multi-user
-  login arrives.
-- `active`: `TRUE`/`FALSE` — soft delete flag so leaving employees stay in
-  history instead of being removed.
+- `permission_role`: one of `Employee`, `Team Lead`, `Main Lead`, `HR`,
+  `Finance`, `Director`, `Administrator` — groundwork for permissions, not
+  to be confused with `job_title`. `job_title` is the real business title
+  (3D Artist, Producer, Head of Operations); `permission_role` is purely an
+  access-control classification the app uses to gate sensitive routes (see
+  `requireRole` in `lib/auth.mjs`). Only Adam has an actual login today, so
+  it doesn't gate anything in practice yet, but the field should be filled
+  in as employees are added so it's ready when multi-user login arrives.
+- `employment_status`: one of `Active`, `On Leave`, `Notice Period`,
+  `Terminated`, `Resigned`. This is the single source of truth for whether
+  someone shows up in the default Directory view — there's deliberately no
+  separate `active` flag, since a second field that can silently contradict
+  this one is worse than one field doing the job. There's also no
+  `Probation` status: probation is already tracked via `probation_end_date`
+  (today's date vs. that value tells you if someone's on probation), so a
+  separate status value would just be duplicating it. `Terminated`/
+  `Resigned` are excluded by default; everything else counts as active.
+- `employment_type` (Full-time/Part-time/Contractor/Freelance/Intern) and
+  `employment_status` are deliberately separate fields, not redundant with
+  each other — one is the nature of the arrangement, the other is where
+  that arrangement currently stands (e.g. a Contractor can be Active or
+  Terminated same as a Full-time employee).
 - `bonus_eligible`: `TRUE`/`FALSE`.
 - Dates: use `YYYY-MM-DD` consistently.
 
@@ -88,6 +106,12 @@ Department | Production              | Concepts Conveyed Group
 Employees attach to a `Team` node by matching their `team` field on the
 `Employees` tab to a `unit_name` here.
 
+**Order of operations matters:** the Employee form's `department` and
+`team` fields are live dropdowns sourced from this tab (via `/api/org-units`)
+rather than free text, so a Department/Team has to exist here *before* it
+shows up as selectable when adding or editing an employee. Add rows here
+first, then use them.
+
 ## 2. Share with the service account
 
 Share the sheet (Editor access) with the email in `GOOGLE_CLIENT_EMAIL`.
@@ -105,5 +129,5 @@ GOOGLE_CLIENT_EMAIL=<service account email>
 GOOGLE_PRIVATE_KEY=<service account private key>
 ```
 
-Once that's set, `/api/employees`, `/api/org-chart`, `/api/salary-history`,
-and `/api/promotion-history` are live.
+Once that's set, `/api/employees`, `/api/org-chart`, `/api/org-units`,
+`/api/salary-history`, and `/api/promotion-history` are live.
