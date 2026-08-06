@@ -240,7 +240,10 @@ function Approvals() {
         <tbody>
           {requests.map((r) => (
             <tr key={r.id}>
-              <td style={styles.td}>{r.employee_id}</td>
+              <td style={styles.td}>
+                {r.nickname || r.full_name}
+                {r.nickname && <span style={styles.fullNameHint}> ({r.full_name})</span>}
+              </td>
               <td style={styles.td}>{r.leave_type}</td>
               <td style={styles.td}>{r.start_date}</td>
               <td style={styles.td}>{r.end_date}</td>
@@ -392,6 +395,7 @@ function ManageBalances() {
 const styles = {
   section: { marginTop: 24, borderTop: '1px solid #eee', paddingTop: 16 },
   hint: { color: '#666', fontSize: 13 },
+  fullNameHint: { color: '#888', fontSize: 12 },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
   th: { textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid #ddd', color: '#555' },
   td: { padding: '8px 10px', borderBottom: '1px solid #eee' },
