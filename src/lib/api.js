@@ -26,6 +26,7 @@ export const api = {
   listEmployees: (includeInactive = false) =>
     request(`employees${includeInactive ? '?includeInactive=true' : ''}`),
   getEmployee: (id) => request(`employees?id=${encodeURIComponent(id)}`),
+  getNextEmployeeId: () => request('employees?nextId=true'),
   createEmployee: (data) => request('employees', { method: 'POST', body: JSON.stringify(data) }),
   updateEmployee: (data) => request('employees', { method: 'PATCH', body: JSON.stringify(data) }),
   deleteEmployee: (id) => request(`employees?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
