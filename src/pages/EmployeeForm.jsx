@@ -17,6 +17,7 @@ const SECTIONS = [
     fields: [
       { key: 'date_of_birth', label: 'Date of birth', type: 'date' },
       { key: 'nationality', label: 'Nationality' },
+      { key: 'religion', label: 'Religion (for THR timing)' },
       { key: 'emergency_contact_name', label: 'Emergency contact name' },
       { key: 'emergency_contact_phone', label: 'Emergency contact phone' },
       { key: 'emergency_contact_relationship', label: 'Emergency contact relationship' },
