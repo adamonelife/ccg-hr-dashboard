@@ -17,7 +17,12 @@ const SECTIONS = [
     fields: [
       { key: 'date_of_birth', label: 'Date of birth', type: 'date' },
       { key: 'nationality', label: 'Nationality' },
-      { key: 'religion', label: 'Religion (for THR timing)' },
+      {
+        key: 'religion',
+        label: 'Religion (for THR timing)',
+        type: 'select',
+        options: ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu', 'Other'],
+      },
       { key: 'emergency_contact_name', label: 'Emergency contact name' },
       { key: 'emergency_contact_phone', label: 'Emergency contact phone' },
       { key: 'emergency_contact_relationship', label: 'Emergency contact relationship' },
@@ -26,31 +31,48 @@ const SECTIONS = [
   {
     title: 'Employment status',
     fields: [
-      { key: 'employment_status', label: 'Employment status' },
+      {
+        key: 'employment_status',
+        label: 'Employment status',
+        type: 'select',
+        options: ['Active', 'On Leave', 'Notice Period', 'Terminated', 'Resigned'],
+      },
       { key: 'start_date', label: 'Start date', type: 'date' },
       { key: 'end_date', label: 'End date', type: 'date' },
-      { key: 'active', label: 'Active (TRUE/FALSE)' },
     ],
   },
   {
     title: 'Organisation',
     fields: [
       { key: 'company', label: 'Company' },
-      { key: 'department', label: 'Department' },
+      { key: 'department', label: 'Department', type: 'select', dynamic: 'departments' },
       { key: 'job_title', label: 'Job title' },
-      { key: 'team', label: 'Team' },
-      { key: 'team_lead_id', label: 'Team lead (employee ID)' },
-      { key: 'main_lead_id', label: 'Main lead (employee ID)' },
-      { key: 'manager_id', label: 'Manager (employee ID)' },
+      { key: 'team', label: 'Team', type: 'select', dynamic: 'teams' },
+      { key: 'manager_id', label: 'Manager (employee ID) — blank if none (e.g. Executive)' },
       { key: 'office_location', label: 'Office location' },
-      { key: 'role', label: 'Permission role' },
+      {
+        key: 'permission_role',
+        label: 'Permission role (access control, not job title)',
+        type: 'select',
+        options: ['Employee', 'Team Lead', 'Main Lead', 'HR', 'Finance', 'Director', 'Administrator'],
+      },
     ],
   },
   {
     title: 'Employment details',
     fields: [
-      { key: 'employment_type', label: 'Employment type' },
-      { key: 'contract_type', label: 'Contract type' },
+      {
+        key: 'employment_type',
+        label: 'Employment type',
+        type: 'select',
+        options: ['Full-time', 'Part-time', 'Contractor', 'Freelance', 'Intern'],
+      },
+      {
+        key: 'contract_type',
+        label: 'Contract type',
+        type: 'select',
+        options: ['PKWT', 'PKWTT'],
+      },
       { key: 'contract_start', label: 'Contract start', type: 'date' },
       { key: 'contract_end', label: 'Contract end', type: 'date' },
       { key: 'probation_end_date', label: 'Probation end date', type: 'date' },
@@ -60,8 +82,8 @@ const SECTIONS = [
     title: 'Compensation',
     fields: [
       { key: 'current_salary', label: 'Current salary', type: 'number' },
-      { key: 'salary_currency', label: 'Currency' },
-      { key: 'bonus_eligible', label: 'Bonus eligible (TRUE/FALSE)' },
+      { key: 'salary_currency', label: 'Currency', type: 'select', options: ['IDR', 'USD'] },
+      { key: 'bonus_eligible', label: 'Bonus eligible', type: 'checkbox' },
     ],
   },
   {
@@ -74,7 +96,10 @@ const SECTIONS = [
   },
 ];
 
-const EMPTY = SECTIONS.flatMap((s) => s.fields).reduce((acc, f) => ({ ...acc, [f.key]: '' }), {});
+const EMPTY = SECTIONS.flatMap((s) => s.fields).reduce(
+  (acc, f) => ({ ...acc, [f.key]: f.type === 'checkbox' ? 'FALSE' : '' }),
+  {}
+);
 
 export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
   const isEdit = Boolean(employeeId);
@@ -82,6 +107,9 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Live department/team names from the OrgUnits sheet — powers those two
+  // dropdowns so they can't drift out of sync with the real org structure.
+  const [orgOptions, setOrgOptions] = useState({ departments: [], teams: [] });
 
   useEffect(() => {
     if (!isEdit) return;
@@ -91,6 +119,16 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [employeeId]);
+
+  useEffect(() => {
+    api
+      .orgUnits()
+      .then((data) => setOrgOptions({ departments: data.departments || [], teams: data.teams || [] }))
+      .catch(() => {
+        // Non-fatal — the form still works, department/team just show as
+        // empty dropdowns until OrgUnits is populated or reachable.
+      });
+  }, []);
 
   function set(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -128,20 +166,59 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
           <fieldset key={section.title} style={styles.fieldset}>
             <legend style={styles.legend}>{section.title}</legend>
             <div style={styles.grid}>
-              {section.fields.map((f) => (
+              {section.fields.map((f) => {
+                // Static options (f.options) or live ones pulled from
+                // OrgUnits (f.dynamic). Either way, if the employee's
+                // current value isn't in the list — e.g. legacy data, or
+                // OrgUnits hasn't been updated yet — prepend it rather than
+                // silently blank it out on save.
+                const baseOptions = f.options || (f.dynamic ? orgOptions[f.dynamic] : []) || [];
+                const currentValue = form[f.key];
+                const selectOptions =
+                  currentValue && !baseOptions.includes(currentValue)
+                    ? [currentValue, ...baseOptions]
+                    : baseOptions;
+
+                return (
                 <label key={f.key} style={styles.label}>
                   {f.label}
                   {f.required && ' *'}
-                  <input
-                    type={f.type || 'text'}
-                    value={form[f.key] ?? ''}
-                    onChange={(e) => set(f.key, e.target.value)}
-                    disabled={isEdit && f.lockOnEdit}
-                    required={f.required}
-                    style={styles.input}
-                  />
+                  {f.type === 'select' ? (
+                    <select
+                      value={form[f.key] ?? ''}
+                      onChange={(e) => set(f.key, e.target.value)}
+                      disabled={isEdit && f.lockOnEdit}
+                      required={f.required}
+                      style={styles.input}
+                    >
+                      <option value="">—</option>
+                      {selectOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : f.type === 'checkbox' ? (
+                    <input
+                      type="checkbox"
+                      checked={form[f.key] === 'TRUE'}
+                      onChange={(e) => set(f.key, e.target.checked ? 'TRUE' : 'FALSE')}
+                      disabled={isEdit && f.lockOnEdit}
+                      style={{ alignSelf: 'flex-start' }}
+                    />
+                  ) : (
+                    <input
+                      type={f.type || 'text'}
+                      value={form[f.key] ?? ''}
+                      onChange={(e) => set(f.key, e.target.value)}
+                      disabled={isEdit && f.lockOnEdit}
+                      required={f.required}
+                      style={styles.input}
+                    />
+                  )}
                 </label>
-              ))}
+                );
+              })}
             </div>
           </fieldset>
         ))}
