@@ -108,7 +108,7 @@ function Dashboard({ session, onLoggedOut }) {
         />
       )}
 
-      {view.name === 'orgchart' && <OrgChart />}
+      {view.name === 'orgchart' && <OrgChart role={session?.role} />}
     </div>
   );
 }
