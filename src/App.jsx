@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Login from './Login.jsx';
 import Directory from './pages/Directory.jsx';
 import EmployeeForm from './pages/EmployeeForm.jsx';
+import EmployeeCard from './pages/EmployeeCard.jsx';
 import OrgChart from './pages/OrgChart.jsx';
 
 export default function App() {
@@ -21,7 +22,8 @@ export default function App() {
 }
 
 // view is one of: { name: 'directory' } | { name: 'orgchart' } |
-// { name: 'employee', employeeId: string|null } (null = add new)
+// { name: 'employee', employeeId: string|null } (null = add new) |
+// { name: 'card', employeeId: string }
 function Dashboard({ onLoggedOut }) {
   const [view, setView] = useState({ name: 'directory' });
 
@@ -49,6 +51,7 @@ function Dashboard({ onLoggedOut }) {
       {view.name === 'directory' && (
         <Directory
           onOpen={(employeeId) => setView({ name: 'employee', employeeId })}
+          onOpenCard={(employeeId) => setView({ name: 'card', employeeId })}
           onAdd={() => setView({ name: 'employee', employeeId: null })}
         />
       )}
@@ -58,6 +61,14 @@ function Dashboard({ onLoggedOut }) {
           employeeId={view.employeeId}
           onSaved={() => setView({ name: 'directory' })}
           onCancel={() => setView({ name: 'directory' })}
+        />
+      )}
+
+      {view.name === 'card' && (
+        <EmployeeCard
+          employeeId={view.employeeId}
+          onBack={() => setView({ name: 'directory' })}
+          onEdit={(employeeId) => setView({ name: 'employee', employeeId })}
         />
       )}
 
