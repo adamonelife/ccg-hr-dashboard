@@ -107,6 +107,7 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   // Live department/team names from the OrgUnits sheet — powers those two
   // dropdowns so they can't drift out of sync with the real org structure.
@@ -153,6 +154,27 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
     }
   }
 
+  async function handleDelete() {
+    if (
+      !window.confirm(
+        `Permanently delete ${form.full_name || employeeId}? This also deletes their salary history, ` +
+          `promotion history, and skills — there's no undo. If they've actually left, use "Employment status" ` +
+          `→ Terminated/Resigned instead to keep their record.`
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    setError('');
+    try {
+      await api.deleteEmployee(employeeId);
+      onCancel();
+    } catch (err) {
+      setError(err.message);
+      setDeleting(false);
+    }
+  }
+
   if (loading) return <p>Loading…</p>;
 
   return (
@@ -161,6 +183,11 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
         ← Back to directory
       </button>
       <h2>{isEdit ? form.full_name || 'Edit employee' : 'Add employee'}</h2>
+      {isEdit && (
+        <button onClick={handleDelete} disabled={deleting} style={styles.deleteButton}>
+          {deleting ? 'Deleting…' : 'Delete employee'}
+        </button>
+      )}
 
       <form onSubmit={handleSubmit}>
         {SECTIONS.map((section) => (
@@ -233,6 +260,7 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
 
       {isEdit && (
         <>
+          <AccountPanel employeeId={employeeId} defaultEmail={form.email} />
           <HistoryPanel
             title="Salary history"
             employeeId={employeeId}
@@ -258,6 +286,99 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
             ]}
           />
         </>
+      )}
+    </div>
+  );
+}
+
+// Login account management (Phase 3). No email is sent automatically —
+// this generates a one-time setup link that you copy and share with the
+// person yourself (Slack, WhatsApp, whatever). Same action works to reset
+// a forgotten password later (a fresh link just lets them set a new one).
+function AccountPanel({ employeeId, defaultEmail }) {
+  const [account, setAccount] = useState(null);
+  const [email, setEmail] = useState('');
+  const [link, setLink] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    load();
+  }, [employeeId]);
+
+  function load() {
+    setLoading(true);
+    api
+      .getAccountStatus(employeeId)
+      .then((data) => {
+        setAccount(data.account);
+        setEmail(data.account?.email || defaultEmail || '');
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSaving(true);
+    setError('');
+    setLink('');
+    try {
+      const data = await api.createAccount(employeeId, email);
+      setLink(`${window.location.origin}/?setup=${data.setup_token}`);
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return null;
+
+  return (
+    <div style={styles.panel}>
+      <h3>Login account</h3>
+      {error && <p style={styles.error}>{error}</p>}
+
+      {account && (
+        <p style={{ fontSize: 13, color: '#555' }}>
+          {account.email} —{' '}
+          {account.has_password
+            ? `active${account.last_login_at ? `, last login ${new Date(account.last_login_at).toLocaleDateString()}` : ' (never logged in)'}`
+            : account.setup_pending
+              ? 'setup link sent, not used yet'
+              : 'no password set'}
+        </p>
+      )}
+
+      <form onSubmit={handleCreate} style={styles.inlineForm}>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={styles.inlineInput}
+        />
+        <button type="submit" disabled={saving} style={styles.addButton}>
+          {saving ? 'Generating…' : account ? 'Reset password / regenerate link' : 'Create login'}
+        </button>
+      </form>
+
+      {link && (
+        <div style={{ marginTop: 8, fontSize: 13 }}>
+          <p style={{ margin: '0 0 4px 0', color: '#555' }}>
+            One-time link (expires in 7 days) — copy and send this to them directly:
+          </p>
+          <input
+            readOnly
+            value={link}
+            onFocus={(e) => e.target.select()}
+            style={{ ...styles.inlineInput, flex: 1, width: '100%' }}
+          />
+        </div>
       )}
     </div>
   );
@@ -356,6 +477,16 @@ const styles = {
     padding: 0,
     marginBottom: 8,
     fontSize: 14,
+  },
+  deleteButton: {
+    float: 'right',
+    padding: '6px 14px',
+    fontSize: 13,
+    border: '1px solid #c00',
+    borderRadius: 4,
+    background: '#fff',
+    color: '#c00',
+    cursor: 'pointer',
   },
   fieldset: { border: '1px solid #ddd', borderRadius: 6, marginBottom: 16, padding: 16 },
   legend: { fontWeight: 600, padding: '0 6px' },
