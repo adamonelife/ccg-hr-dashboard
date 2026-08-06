@@ -18,7 +18,7 @@ One row per employee. This is the core record everything else hangs off.
 Row 1 headers (columns A onward, in this order):
 
 ```
-employee_id | full_name | photo_url | email | phone | emergency_contact_name | emergency_contact_phone | emergency_contact_relationship | date_of_birth | nationality | employment_status | start_date | end_date | company | department | job_title | team | team_lead_id | main_lead_id | manager_id | office_location | employment_type | contract_type | contract_start | contract_end | probation_end_date | current_salary | salary_currency | bonus_eligible | kitas_expiry | passport_expiry | work_permit_expiry | role | active | created_at | updated_at
+employee_id | full_name | photo_url | email | phone | emergency_contact_name | emergency_contact_phone | emergency_contact_relationship | date_of_birth | nationality | religion | employment_status | start_date | end_date | company | department | job_title | team | team_lead_id | main_lead_id | manager_id | office_location | employment_type | contract_type | contract_start | contract_end | probation_end_date | current_salary | salary_currency | bonus_eligible | kitas_expiry | passport_expiry | work_permit_expiry | role | active | created_at | updated_at
 ```
 
 Notes:
@@ -30,6 +30,12 @@ Notes:
   names dynamically.
 - `photo_url`: leave blank for now: this becomes a Google Drive link once
   Phase 2 (Documents) wires up Drive storage.
+- `religion`: needed for Indonesian THR (Tunjangan Hari Raya) — the
+  mandatory religious-holiday allowance, an extra month's pay timed to each
+  employee's own religious holiday (Idul Fitri, Christmas, Nyepi, etc.).
+  Free text, matching Indonesia's officially recognized categories is
+  sensible (Islam, Kristen, Katolik, Hindu, Buddha, Konghucu) but not
+  enforced by the code.
 - `role`: one of `Employee`, `Team Lead`, `Main Lead`, `HR`, `Finance`,
   `Director`, `Administrator` — groundwork for permissions. Only Adam has an
   actual login today, so this doesn't gate anything yet, but the field
