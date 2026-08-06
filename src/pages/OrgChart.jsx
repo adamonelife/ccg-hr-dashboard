@@ -48,7 +48,9 @@ export default function OrgChart({ role }) {
         <TreeNode
           key={node.name}
           node={node}
+          depth={0}
           employees={employees}
+          units={units}
           canManage={canManage}
           onChanged={load}
         />
@@ -86,9 +88,11 @@ export default function OrgChart({ role }) {
   );
 }
 
-function TreeNode({ node, employees, canManage, onChanged }) {
+function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
   const [assigning, setAssigning] = useState(false);
   const [leadId, setLeadId] = useState(node.lead_employee_id || '');
+  const [moving, setMoving] = useState(false);
+  const [newParent, setNewParent] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -99,6 +103,21 @@ function TreeNode({ node, employees, canManage, onChanged }) {
     try {
       await api.assignOrgUnitLead(node.name, leadId || null);
       setAssigning(false);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleMove(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await api.moveOrgUnit(node.name, newParent || null);
+      setMoving(false);
       onChanged();
     } catch (err) {
       setError(err.message);
@@ -120,9 +139,15 @@ function TreeNode({ node, employees, canManage, onChanged }) {
     }
   }
 
+  // Everything else in org_units except this node itself and anything
+  // this node is already an ancestor of — the server re-checks this too
+  // (can't move a unit under its own sub-unit), but filtering it out here
+  // keeps the dropdown from offering an obviously-invalid choice.
+  const moveOptions = (units || []).filter((u) => u.unit_name !== node.name);
+
   return (
-    <div style={{ marginBottom: 8 }}>
-      <div className="org-node-wrap" style={styles.nodeRow}>
+    <div style={{ marginLeft: depth * 24, marginBottom: 8 }}>
+      <div style={styles.nodeRow}>
         <div style={styles.nodeLabel}>
           <span style={styles.nodeType}>{node.type}</span> {node.name}
           {node.lead_name && <span style={styles.leadTag}> · Lead: {node.lead_name}</span>}
@@ -131,6 +156,9 @@ function TreeNode({ node, employees, canManage, onChanged }) {
           <span style={styles.nodeActions}>
             <button onClick={() => setAssigning((v) => !v)} style={styles.rowButton}>
               {node.lead_name ? 'Change lead' : 'Assign lead'}
+            </button>
+            <button onClick={() => setMoving((v) => !v)} style={styles.rowButton}>
+              Move
             </button>
             <button onClick={handleDelete} disabled={saving} style={styles.rowButton}>
               Delete
@@ -157,6 +185,25 @@ function TreeNode({ node, employees, canManage, onChanged }) {
           </button>
         </form>
       )}
+
+      {canManage && moving && (
+        <form onSubmit={handleMove} style={styles.inlineForm}>
+          <select value={newParent} onChange={(e) => setNewParent(e.target.value)} style={styles.select}>
+            <option value="">— top level —</option>
+            {moveOptions.map((u) => (
+              <option key={u.unit_name} value={u.unit_name}>
+                {u.unit_name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={saving} style={styles.addButton}>
+            {saving ? 'Moving…' : 'Move here'}
+          </button>
+          <button type="button" onClick={() => setMoving(false)} style={styles.cancelButton}>
+            Cancel
+          </button>
+        </form>
+      )}
       {error && <p style={styles.error}>{error}</p>}
 
       {node.members?.length > 0 && (
@@ -168,19 +215,17 @@ function TreeNode({ node, employees, canManage, onChanged }) {
           ))}
         </ul>
       )}
-      {node.children?.length > 0 && (
-        <div className="org-node-children">
-          {node.children.map((child) => (
-            <TreeNode
-              key={child.name}
-              node={child}
-              employees={employees}
-              canManage={canManage}
-              onChanged={onChanged}
-            />
-          ))}
-        </div>
-      )}
+      {node.children?.map((child) => (
+        <TreeNode
+          key={child.name}
+          node={child}
+          depth={depth + 1}
+          employees={employees}
+          units={units}
+          canManage={canManage}
+          onChanged={onChanged}
+        />
+      ))}
     </div>
   );
 }
