@@ -24,6 +24,7 @@ import { handleEmployees } from '../lib/employees.mjs';
 import { handleOrgChart, handleOrgUnits } from '../lib/org.mjs';
 import { handleSalaryHistory } from '../lib/salary-history.mjs';
 import { handlePromotionHistory } from '../lib/promotion-history.mjs';
+import { handleSkills } from '../lib/skills.mjs';
 
 export const config = {
   api: { bodyParser: false },
@@ -49,6 +50,7 @@ const routes = {
   'org-units': requireAuth(handleOrgUnits),
   'salary-history': requireRole('administrator', 'hr', 'finance')(handleSalaryHistory),
   'promotion-history': requireRole('administrator', 'hr')(handlePromotionHistory),
+  skills: requireAuth(handleSkills),
 };
 
 async function readRawBody(req) {
