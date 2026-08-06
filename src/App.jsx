@@ -8,17 +8,35 @@ import OrgChart from './pages/OrgChart.jsx';
 
 export default function App() {
   const [status, setStatus] = useState('checking'); // checking | authed | anon
+  // { user, role, employee_id, full_name } once authed — role-based UI
+  // (Directory columns/buttons) reads this, not just "are they logged in."
+  const [session, setSession] = useState(null);
   // Reached via a one-time setup link (see EmployeeForm.jsx's "Login
   // account" section) — works regardless of login state, since the whole
   // point is there's no account/session yet.
   const [setupToken] = useState(() => new URLSearchParams(window.location.search).get('setup'));
 
+  function loadSession() {
+    return fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated) {
+          setSession(data);
+          setStatus('authed');
+        } else {
+          setSession(null);
+          setStatus('anon');
+        }
+      })
+      .catch(() => {
+        setSession(null);
+        setStatus('anon');
+      });
+  }
+
   useEffect(() => {
     if (setupToken) return;
-    fetch('/api/auth/me')
-      .then((res) => res.json())
-      .then((data) => setStatus(data.authenticated ? 'authed' : 'anon'))
-      .catch(() => setStatus('anon'));
+    loadSession();
   }, [setupToken]);
 
   if (setupToken) {
@@ -33,15 +51,15 @@ export default function App() {
   }
 
   if (status === 'checking') return null;
-  if (status === 'anon') return <Login onLoggedIn={() => setStatus('authed')} />;
+  if (status === 'anon') return <Login onLoggedIn={loadSession} />;
 
-  return <Dashboard onLoggedOut={() => setStatus('anon')} />;
+  return <Dashboard session={session} onLoggedOut={() => { setSession(null); setStatus('anon'); }} />;
 }
 
 // view is one of: { name: 'directory' } | { name: 'orgchart' } |
 // { name: 'employee', employeeId: string|null } (null = add new) |
 // { name: 'card', employeeId: string }
-function Dashboard({ onLoggedOut }) {
+function Dashboard({ session, onLoggedOut }) {
   const [view, setView] = useState({ name: 'directory' });
 
   async function handleLogout() {
@@ -67,6 +85,7 @@ function Dashboard({ onLoggedOut }) {
 
       {view.name === 'directory' && (
         <Directory
+          role={session?.role}
           onOpen={(employeeId) => setView({ name: 'employee', employeeId })}
           onOpenCard={(employeeId) => setView({ name: 'card', employeeId })}
           onAdd={() => setView({ name: 'employee', employeeId: null })}
