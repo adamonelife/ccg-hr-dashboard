@@ -45,9 +45,9 @@ export default function OrgChart() {
         <tbody>
           {reportingLines.map((r) => (
             <tr key={r.employee_id}>
-              <td style={styles.td}>{r.full_name}</td>
+              <td style={styles.td}>{r.nickname || r.full_name}</td>
               <td style={styles.td}>{r.job_title}</td>
-              <td style={styles.td}>{r.manager_name || r.manager_id}</td>
+              <td style={styles.td}>{r.manager_nickname || r.manager_name || r.manager_id}</td>
             </tr>
           ))}
           {reportingLines.length === 0 && (
@@ -73,7 +73,7 @@ function TreeNode({ node, depth }) {
         <ul style={styles.memberList}>
           {node.members.map((m) => (
             <li key={m.employee_id}>
-              {m.full_name} — {m.job_title}
+              {m.nickname || m.full_name} — {m.job_title}
             </li>
           ))}
         </ul>
