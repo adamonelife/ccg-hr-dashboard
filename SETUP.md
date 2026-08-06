@@ -46,18 +46,32 @@ fresh with no existing Sheets data, you can skip this entirely.
 ## 4. Migrating existing Sheets data (optional, one-time)
 
 If the old HR Google Sheet already has real rows in it (employees, org
-units, history, skills), run the migration script once to copy them into
-Postgres:
+units, history, skills), migrate them into Postgres once. Two ways:
+
+**Recommended — admin endpoint, no local setup needed.** Make sure
+`HR_SHEET_ID`, `GOOGLE_CLIENT_EMAIL`, and `GOOGLE_PRIVATE_KEY` are still set
+in Vercel (they should already be there from the Sheets era) alongside the
+new `DATABASE_URL`. Then, logged in to the app as an administrator, visit:
+
+```
+https://<your-app>.vercel.app/api/admin/migrate-from-sheets
+```
+
+directly in your browser. It reads all four env vars from Vercel itself and
+returns a JSON summary of how many rows it copied per table. Refuses to run
+if `employees` already has rows in it (so an accidental page reload can't
+duplicate everything) — see `lib/migrate.mjs` for the full safety notes.
+
+**Alternative — CLI**, for anyone with Node.js and Terminal available
+locally:
 
 ```
 DATABASE_URL=... HR_SHEET_ID=... GOOGLE_CLIENT_EMAIL=... GOOGLE_PRIVATE_KEY='...' \
   node db/migrate-from-sheets.mjs
 ```
 
-It's safe to run against a sheet that's empty or only partially filled in —
-see the comment block at the top of `db/migrate-from-sheets.mjs` for exactly
-what it does and its re-run behaviour (org_units/employees are safe to
-re-run; the three history/log tables are not, once they have real rows).
+Both call the exact same migration logic (`lib/migrate.mjs`), so it doesn't
+matter which one you use.
 
 If the Sheet never had real data in it (e.g. you were still designing the
 schema when the Postgres switch happened), skip this step entirely and just
