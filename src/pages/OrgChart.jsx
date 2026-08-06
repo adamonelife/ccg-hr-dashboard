@@ -3,7 +3,13 @@ import { api } from '../lib/api.js';
 
 const UNIT_TYPES = ['Group', 'Company', 'Department', 'Team'];
 
-export default function OrgChart() {
+// Matches lib/org.mjs's MUTATE_ROLES — create/assign-lead/delete are all
+// gated the same way. Kept as a plain array here (UI-only convenience);
+// the actual enforcement is server-side.
+const CAN_MANAGE_ORG_UNITS = ['Administrator', 'Director'];
+
+export default function OrgChart({ role }) {
+  const canManage = CAN_MANAGE_ORG_UNITS.includes(role);
   const [tree, setTree] = useState([]);
   const [reportingLines, setReportingLines] = useState([]);
   const [units, setUnits] = useState([]);
@@ -39,10 +45,17 @@ export default function OrgChart() {
       <h2>Organisation structure</h2>
       {tree.length === 0 && <p style={styles.hint}>No org units defined yet — add one below.</p>}
       {tree.map((node) => (
-        <TreeNode key={node.name} node={node} depth={0} employees={employees} onChanged={load} />
+        <TreeNode
+          key={node.name}
+          node={node}
+          depth={0}
+          employees={employees}
+          canManage={canManage}
+          onChanged={load}
+        />
       ))}
 
-      <AddUnitForm units={units} employees={employees} onAdded={load} />
+      {canManage && <AddUnitForm units={units} employees={employees} onAdded={load} />}
 
       <h2 style={{ marginTop: 32 }}>Reporting lines</h2>
       <table style={styles.table}>
@@ -74,7 +87,7 @@ export default function OrgChart() {
   );
 }
 
-function TreeNode({ node, depth, employees, onChanged }) {
+function TreeNode({ node, depth, employees, canManage, onChanged }) {
   const [assigning, setAssigning] = useState(false);
   const [leadId, setLeadId] = useState(node.lead_employee_id || '');
   const [saving, setSaving] = useState(false);
@@ -115,17 +128,19 @@ function TreeNode({ node, depth, employees, onChanged }) {
           <span style={styles.nodeType}>{node.type}</span> {node.name}
           {node.lead_name && <span style={styles.leadTag}> · Lead: {node.lead_name}</span>}
         </div>
-        <span style={styles.nodeActions}>
-          <button onClick={() => setAssigning((v) => !v)} style={styles.rowButton}>
-            {node.lead_name ? 'Change lead' : 'Assign lead'}
-          </button>
-          <button onClick={handleDelete} disabled={saving} style={styles.rowButton}>
-            Delete
-          </button>
-        </span>
+        {canManage && (
+          <span style={styles.nodeActions}>
+            <button onClick={() => setAssigning((v) => !v)} style={styles.rowButton}>
+              {node.lead_name ? 'Change lead' : 'Assign lead'}
+            </button>
+            <button onClick={handleDelete} disabled={saving} style={styles.rowButton}>
+              Delete
+            </button>
+          </span>
+        )}
       </div>
 
-      {assigning && (
+      {canManage && assigning && (
         <form onSubmit={handleSaveLead} style={styles.inlineForm}>
           <select value={leadId} onChange={(e) => setLeadId(e.target.value)} style={styles.select}>
             <option value="">— none —</option>
@@ -155,7 +170,14 @@ function TreeNode({ node, depth, employees, onChanged }) {
         </ul>
       )}
       {node.children?.map((child) => (
-        <TreeNode key={child.name} node={child} depth={depth + 1} employees={employees} onChanged={onChanged} />
+        <TreeNode
+          key={child.name}
+          node={child}
+          depth={depth + 1}
+          employees={employees}
+          canManage={canManage}
+          onChanged={onChanged}
+        />
       ))}
     </div>
   );
@@ -254,25 +276,3 @@ const styles = {
   td: { padding: '8px 10px', borderBottom: '1px solid #eee' },
   hint: { color: '#666', fontSize: 14 },
   error: { color: '#c00' },
-  inlineForm: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 },
-  select: { padding: 6, fontSize: 13, border: '1px solid #ccc', borderRadius: 4 },
-  addButton: {
-    padding: '6px 14px',
-    fontSize: 13,
-    border: 'none',
-    borderRadius: 4,
-    background: '#111',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  cancelButton: {
-    padding: '6px 14px',
-    fontSize: 13,
-    border: '1px solid #ccc',
-    borderRadius: 4,
-    background: '#fff',
-    cursor: 'pointer',
-  },
-  addUnitPanel: { marginTop: 24, borderTop: '1px solid #eee', paddingTop: 16 },
-  sectionTitle: { fontSize: 14, margin: '0 0 8px 0' },
-};
