@@ -48,6 +48,12 @@ const routes = {
   // Phase 1 — Employee Directory / Employment / Organisation Structure
   employees: requireAuth(handleEmployees),
   'org-chart': requireAuth(handleOrgChart),
+  // org-units now supports create/assign-lead/delete too (see lib/org.mjs).
+  // Left as requireAuth here rather than requireRole, because GET still
+  // needs to be reachable by anyone filling out the Employee form
+  // (department/team dropdowns) — handleOrgUnits itself checks
+  // session.role for the mutating methods (POST/PATCH/DELETE) instead of
+  // gating the whole route.
   'org-units': requireAuth(handleOrgUnits),
   'salary-history': requireRole('administrator', 'hr', 'finance')(handleSalaryHistory),
   'promotion-history': requireRole('administrator', 'hr')(handlePromotionHistory),
