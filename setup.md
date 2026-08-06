@@ -18,13 +18,17 @@ One row per employee. This is the core record everything else hangs off.
 Row 1 headers (columns A onward, in this order):
 
 ```
-employee_id | full_name | photo_url | email | phone | emergency_contact_name | emergency_contact_phone | emergency_contact_relationship | date_of_birth | nationality | religion | employment_status | start_date | end_date | company | department | job_title | team | manager_id | office_location | employment_type | contract_type | contract_start | contract_end | probation_end_date | current_salary | salary_currency | bonus_eligible | kitas_expiry | passport_expiry | work_permit_expiry | permission_role | created_at | updated_at
+employee_id | full_name | nickname | photo_url | email | phone | emergency_contact_name | emergency_contact_phone | emergency_contact_relationship | date_of_birth | nationality | religion | employment_status | start_date | end_date | company | department | job_title | team | manager_id | office_location | employment_type | contract_type | contract_start | contract_end | probation_end_date | current_salary | salary_currency | bonus_eligible | kitas_expiry | passport_expiry | work_permit_expiry | permission_role | created_at | updated_at
 ```
 
 Notes:
 - `employee_id`: pick a convention now (e.g. `CCG-001`) — it's the primary
   key used everywhere else (salary history, promotion history, reporting
   lines).
+- `nickname`: for disambiguation where multiple people share a first name
+  (common enough with Indonesian names to be worth a dedicated field rather
+  than cramming it into `full_name`). Shown right next to the name in the
+  Directory table, not just on the edit form.
 - `manager_id`: another row's `employee_id`, not a name — this is the only
   reporting-line field (no separate team-lead/main-lead fields; they'd have
   been redundant with `manager_id` plus `team`). Blank if someone has no
