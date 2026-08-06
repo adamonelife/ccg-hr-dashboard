@@ -12,14 +12,23 @@ async function request(path, opts = {}) {
 
 export const api = {
   me: () => request('auth/me'),
-  login: (password) => request('auth/login', { method: 'POST', body: JSON.stringify({ password }) }),
+  // Leave email blank/undefined for the master-admin bootstrap login.
+  login: (password, email) =>
+    request('auth/login', { method: 'POST', body: JSON.stringify({ password, email: email || undefined }) }),
   logout: () => request('auth/logout', { method: 'POST' }),
+  setPassword: (token, password) =>
+    request('auth/set-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
+
+  getAccountStatus: (employeeId) => request(`admin/accounts?employeeId=${encodeURIComponent(employeeId)}`),
+  createAccount: (employeeId, email) =>
+    request('admin/accounts', { method: 'POST', body: JSON.stringify({ employee_id: employeeId, email }) }),
 
   listEmployees: (includeInactive = false) =>
     request(`employees${includeInactive ? '?includeInactive=true' : ''}`),
   getEmployee: (id) => request(`employees?id=${encodeURIComponent(id)}`),
   createEmployee: (data) => request('employees', { method: 'POST', body: JSON.stringify(data) }),
   updateEmployee: (data) => request('employees', { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteEmployee: (id) => request(`employees?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   orgChart: () => request('org-chart'),
   orgUnits: () => request('org-units'),
