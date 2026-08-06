@@ -22,7 +22,7 @@ const SECTIONS = [
         key: 'religion',
         label: 'Religion (for THR timing)',
         type: 'select',
-        options: ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu', 'Other'],
+        options: ['Islam', 'Kristen', 'Katholik', 'Hindu', 'Buddha', 'Konghucu', 'NA'],
       },
       { key: 'emergency_contact_name', label: 'Emergency contact name' },
       { key: 'emergency_contact_phone', label: 'Emergency contact phone' },
