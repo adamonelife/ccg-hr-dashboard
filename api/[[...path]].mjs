@@ -21,7 +21,7 @@
 import { handleHealth } from '../lib/health.mjs';
 import { handleLogin, handleLogout, handleMe, requireAuth, requireRole } from '../lib/auth.mjs';
 import { handleEmployees } from '../lib/employees.mjs';
-import { handleOrgChart } from '../lib/org.mjs';
+import { handleOrgChart, handleOrgUnits } from '../lib/org.mjs';
 import { handleSalaryHistory } from '../lib/salary-history.mjs';
 import { handlePromotionHistory } from '../lib/promotion-history.mjs';
 
@@ -46,6 +46,7 @@ const routes = {
   // Phase 1 — Employee Directory / Employment / Organisation Structure
   employees: requireAuth(handleEmployees),
   'org-chart': requireAuth(handleOrgChart),
+  'org-units': requireAuth(handleOrgUnits),
   'salary-history': requireRole('administrator', 'hr', 'finance')(handleSalaryHistory),
   'promotion-history': requireRole('administrator', 'hr')(handlePromotionHistory),
 };
