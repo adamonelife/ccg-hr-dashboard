@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
-const UNIT_TYPES = ['Group', 'Company', 'Department', 'Team'];
+// 'Company' deliberately not offered here — CC/CC Landscape/Pelago etc. are
+// separate companies externally but just teams under Operations
+// internally, per Adam's org-chart cleanup request. Matches lib/org.mjs's
+// UNIT_TYPES.
+const UNIT_TYPES = ['Group', 'Department', 'Team'];
 
 // Matches lib/org.mjs's MUTATE_ROLES — create/assign-lead/delete are all
 // gated the same way. Kept as a plain array here (UI-only convenience);
@@ -93,6 +97,8 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
   const [leadId, setLeadId] = useState(node.lead_employee_id || '');
   const [moving, setMoving] = useState(false);
   const [newParent, setNewParent] = useState('');
+  const [reordering, setReordering] = useState(false);
+  const [sortOrder, setSortOrder] = useState(node.sort_order ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -118,6 +124,21 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
     try {
       await api.moveOrgUnit(node.name, newParent || null);
       setMoving(false);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveOrder(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await api.setOrgUnitOrder(node.name, sortOrder);
+      setReordering(false);
       onChanged();
     } catch (err) {
       setError(err.message);
@@ -160,6 +181,9 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
             <button onClick={() => setMoving((v) => !v)} style={styles.rowButton}>
               Move
             </button>
+            <button onClick={() => setReordering((v) => !v)} style={styles.rowButton}>
+              Reorder
+            </button>
             <button onClick={handleDelete} disabled={saving} style={styles.rowButton}>
               Delete
             </button>
@@ -200,6 +224,24 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
             {saving ? 'Moving…' : 'Move here'}
           </button>
           <button type="button" onClick={() => setMoving(false)} style={styles.cancelButton}>
+            Cancel
+          </button>
+        </form>
+      )}
+
+      {canManage && reordering && (
+        <form onSubmit={handleSaveOrder} style={styles.inlineForm}>
+          <input
+            type="number"
+            placeholder="Order (lower = earlier)"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            style={{ ...styles.select, width: 160 }}
+          />
+          <button type="submit" disabled={saving} style={styles.addButton}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" onClick={() => setReordering(false)} style={styles.cancelButton}>
             Cancel
           </button>
         </form>
