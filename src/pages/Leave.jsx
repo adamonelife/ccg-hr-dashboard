@@ -131,7 +131,7 @@ function RequestForm({ employeeId, onSubmitted }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!startDate || !endDate) return;
+    if (!startDate || !endDate || !reason.trim()) return;
     setSaving(true);
     setError('');
     try {
@@ -173,7 +173,8 @@ function RequestForm({ employeeId, onSubmitted }) {
         Half day
       </label>
       <input
-        placeholder="Reason (optional)"
+        placeholder="Reason"
+        required
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         style={{ ...styles.input, flex: 2 }}
