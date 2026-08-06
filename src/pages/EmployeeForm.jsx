@@ -114,7 +114,18 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
   const [orgOptions, setOrgOptions] = useState({ departments: [], teams: [] });
 
   useEffect(() => {
-    if (!isEdit) return;
+    if (!isEdit) {
+      // New employee — suggest the next ID (highest existing CCG-### + 1)
+      // rather than making them figure it out. Still editable, just a
+      // default, in case the convention ever needs a one-off override.
+      api
+        .getNextEmployeeId()
+        .then((data) => setForm((f) => ({ ...f, employee_id: data.next_id })))
+        .catch(() => {
+          // Non-fatal — they can just type an ID themselves.
+        });
+      return;
+    }
     api
       .getEmployee(employeeId)
       .then((data) => setForm({ ...EMPTY, ...data.employee }))
