@@ -85,7 +85,9 @@ need shows up.
 ## Status
 
 - [x] Repo scaffold (router, auth, Sheets template, Vite/React shell)
-- [ ] Phase 1 — Employee Directory + Employment + Org Structure + Permissions
+- [x] Phase 1 — Employee Directory + Employment + Org Structure + Permissions
+      (backend + frontend built; live once the Google Sheet is created and
+      shared per SETUP.md)
 - [ ] Phase 2 — Notifications + Documents
 - [ ] Phase 3 — Leave Management
 - [ ] Phase 4 — Dashboards
