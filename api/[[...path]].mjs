@@ -19,13 +19,14 @@
 // go in RAW_BODY_ROUTES and get req.rawBody instead of req.body.
 
 import { handleHealth } from '../lib/health.mjs';
-import { handleLogin, handleLogout, handleMe, requireAuth, requireRole } from '../lib/auth.mjs';
+import { handleLogin, handleLogout, handleMe, handleSetPassword, requireAuth, requireRole } from '../lib/auth.mjs';
 import { handleEmployees } from '../lib/employees.mjs';
 import { handleOrgChart, handleOrgUnits } from '../lib/org.mjs';
 import { handleSalaryHistory } from '../lib/salary-history.mjs';
 import { handlePromotionHistory } from '../lib/promotion-history.mjs';
 import { handleSkills } from '../lib/skills.mjs';
 import { handleMigrateFromSheets } from '../lib/migrate.mjs';
+import { handleAccounts } from '../lib/accounts.mjs';
 
 export const config = {
   api: { bodyParser: false },
@@ -44,6 +45,9 @@ const routes = {
   'auth/login': handleLogin,
   'auth/logout': handleLogout,
   'auth/me': handleMe,
+  // Public — no session exists yet when someone's setting their password
+  // for the first time (or resetting it) via a one-time link.
+  'auth/set-password': handleSetPassword,
 
   // Phase 1 — Employee Directory / Employment / Organisation Structure
   employees: requireAuth(handleEmployees),
@@ -55,14 +59,21 @@ const routes = {
   // session.role for the mutating methods (POST/PATCH/DELETE) instead of
   // gating the whole route.
   'org-units': requireAuth(handleOrgUnits),
-  'salary-history': requireRole('administrator', 'hr', 'finance')(handleSalaryHistory),
-  'promotion-history': requireRole('administrator', 'hr')(handlePromotionHistory),
+  'salary-history': requireRole('Administrator', 'HR', 'Finance')(handleSalaryHistory),
+  'promotion-history': requireRole('Administrator', 'HR')(handlePromotionHistory),
+  // skills is requireAuth, not requireRole — visibility is scoped per
+  // employee inside lib/skills.mjs (lib/permissions.mjs's canView), not a
+  // flat role gate, since a Team Lead needs access to their own team's
+  // skills but nobody else's.
   skills: requireAuth(handleSkills),
 
   // One-time admin operation: copies the old HR Google Sheet into Postgres.
   // GET so it can be triggered by visiting the URL directly in a browser
   // tab while logged in — see lib/migrate.mjs for the safety/re-run notes.
-  'admin/migrate-from-sheets': requireRole('administrator')(handleMigrateFromSheets),
+  'admin/migrate-from-sheets': requireRole('Administrator')(handleMigrateFromSheets),
+
+  // Phase 3 — who has a login. See lib/accounts.mjs.
+  'admin/accounts': requireRole('Administrator')(handleAccounts),
 };
 
 async function readRawBody(req) {
