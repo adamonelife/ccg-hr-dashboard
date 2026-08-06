@@ -52,4 +52,13 @@ export const api = {
   addSkillEntry: (data) => request('skills', { method: 'POST', body: JSON.stringify(data) }),
   updateSkillEntry: (data) => request('skills', { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSkillEntry: (id) => request(`skills?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  leaveBalances: (employeeId) => request(`leave-balances?employeeId=${encodeURIComponent(employeeId)}`),
+  setLeaveBalance: (data) => request('leave-balances', { method: 'POST', body: JSON.stringify(data) }),
+
+  leaveRequests: (employeeId) => request(`leave-requests?employeeId=${encodeURIComponent(employeeId)}`),
+  leaveApprovals: () => request('leave-requests?scope=approvals'),
+  submitLeaveRequest: (data) => request('leave-requests', { method: 'POST', body: JSON.stringify(data) }),
+  decideLeaveRequest: (id, status) =>
+    request('leave-requests', { method: 'PATCH', body: JSON.stringify({ id, status }) }),
 };
