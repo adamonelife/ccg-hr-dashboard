@@ -7,6 +7,7 @@ const SECTIONS = [
     fields: [
       { key: 'employee_id', label: 'Employee ID', required: true, lockOnEdit: true },
       { key: 'full_name', label: 'Full name', required: true },
+      { key: 'nickname', label: 'Nickname (for disambiguation)' },
       { key: 'photo_url', label: 'Photo URL' },
       { key: 'email', label: 'Email' },
       { key: 'phone', label: 'Phone' },
