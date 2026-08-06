@@ -48,7 +48,6 @@ export default function OrgChart({ role }) {
         <TreeNode
           key={node.name}
           node={node}
-          depth={0}
           employees={employees}
           canManage={canManage}
           onChanged={load}
@@ -87,7 +86,7 @@ export default function OrgChart({ role }) {
   );
 }
 
-function TreeNode({ node, depth, employees, canManage, onChanged }) {
+function TreeNode({ node, employees, canManage, onChanged }) {
   const [assigning, setAssigning] = useState(false);
   const [leadId, setLeadId] = useState(node.lead_employee_id || '');
   const [saving, setSaving] = useState(false);
@@ -122,8 +121,8 @@ function TreeNode({ node, depth, employees, canManage, onChanged }) {
   }
 
   return (
-    <div style={{ marginLeft: depth * 24, marginBottom: 8 }}>
-      <div style={styles.nodeRow}>
+    <div style={{ marginBottom: 8 }}>
+      <div className="org-node-wrap" style={styles.nodeRow}>
         <div style={styles.nodeLabel}>
           <span style={styles.nodeType}>{node.type}</span> {node.name}
           {node.lead_name && <span style={styles.leadTag}> · Lead: {node.lead_name}</span>}
@@ -169,16 +168,19 @@ function TreeNode({ node, depth, employees, canManage, onChanged }) {
           ))}
         </ul>
       )}
-      {node.children?.map((child) => (
-        <TreeNode
-          key={child.name}
-          node={child}
-          depth={depth + 1}
-          employees={employees}
-          canManage={canManage}
-          onChanged={onChanged}
-        />
-      ))}
+      {node.children?.length > 0 && (
+        <div className="org-node-children">
+          {node.children.map((child) => (
+            <TreeNode
+              key={child.name}
+              node={child}
+              employees={employees}
+              canManage={canManage}
+              onChanged={onChanged}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
