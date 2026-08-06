@@ -5,18 +5,32 @@ body {
   margin: 0;
 }
 
-/* Org chart tree connector lines (src/pages/OrgChart.jsx). Plain CSS
-   border-based technique rather than SVG/a charting library, since the
-   project has no external UI deps: each nesting level's children get a
-   vertical line down their left edge (.org-node-children), and each
-   individual child gets a short horizontal stub (::before, positioned
-   absolutely) connecting that vertical line to its own label row. The
-   vertical line naturally stops at the last child, giving the classic
-   tree look with zero JS depth math. */
+/* Org chart tree connector lines (src/pages/OrgChart.jsx).
+   Each nesting level's children sit in a ".org-node-children" container.
+   That container gets its own vertical trunk line via ::before (NOT
+   border-left) so it can be trimmed with `bottom: 15px` to stop exactly at
+   the last child's horizontal tick, instead of running past it — this is
+   what makes it read as "one clean line down to the last branch" rather
+   than a line that keeps going after the tree visually ends. Each child
+   gets its own horizontal tick (::before on .org-node-wrap) connecting it
+   to its parent's trunk. Levels are staggered by a wider padding-left so
+   depth is obvious at a glance, and every nested subtree gets a fresh
+   trunk of its own, offset further right — so a company's own
+   teams/sub-teams are visually "inside" that company's branch rather than
+   looking like they interrupt the level above it. */
 .org-node-children {
-  margin-left: 4px;
-  padding-left: 20px;
-  border-left: 1px solid #d5d5d5;
+  position: relative;
+  margin-left: 6px;
+  padding-left: 32px;
+}
+.org-node-children::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 15px;
+  left: 0;
+  width: 2px;
+  background: #c2c2c2;
 }
 .org-node-wrap {
   position: relative;
@@ -24,9 +38,9 @@ body {
 .org-node-children > .org-node-wrap::before {
   content: '';
   position: absolute;
-  top: 13px;
-  left: -20px;
-  width: 20px;
-  height: 1px;
-  background: #d5d5d5;
+  top: 15px;
+  left: -32px;
+  width: 32px;
+  height: 2px;
+  background: #c2c2c2;
 }
