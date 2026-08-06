@@ -4,9 +4,15 @@
 // under the Hobby plan's 12-function cap the same way Ops Dash does it.
 // All real logic lives in /lib and gets imported + registered below.
 //
-// Routing: Vercel's [[...path]] catch-all puts the matched segments in
-// req.query.path as an array. We join them with "/" and look up the exact
-// route name in `routes`.
+// Routing: mirrors Ops Dash's actual (working) pattern, not the naive
+// version that shipped in the first cut of this file. Outside Next.js,
+// Vercel's automatic bracket-file dynamic segments (req.query.path) aren't
+// reliably populated without an explicit rewrite — Ops Dash sidesteps this
+// entirely by parsing the real request path straight out of req.url, and
+// only falls back to req.query.path if that comes up empty. vercel.json has
+// a matching explicit rewrite that forces every /api/* request to this
+// function regardless of how Vercel's own bracket-matching would resolve
+// it on its own.
 //
 // Body parsing: bodyParser is off (see vercel.json) so we control it here.
 // Routes that need the raw, unparsed body (e.g. webhook HMAC verification)
@@ -53,7 +59,12 @@ async function readRawBody(req) {
 }
 
 export default async function handler(req, res) {
-  const segments = Array.isArray(req.query.path) ? req.query.path : [req.query.path].filter(Boolean);
+  const pathname = new URL(req.url, `https://${req.headers.host}`).pathname;
+  let segments = pathname.replace(/^\/api\/?/, '').split('/').filter(Boolean);
+  if (segments.length === 0 && req.query.path) {
+    const raw = req.query.path;
+    segments = Array.isArray(raw) ? raw : String(raw).split('/').filter(Boolean);
+  }
   const routeName = segments.join('/');
 
   const fn = routes[routeName];
