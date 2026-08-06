@@ -39,6 +39,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ unit_name: unitName, lead_employee_id: leadEmployeeId }),
     }),
+  moveOrgUnit: (unitName, newParentUnitName) =>
+    request('org-units', {
+      method: 'PATCH',
+      body: JSON.stringify({ unit_name: unitName, parent_unit_name: newParentUnitName }),
+    }),
   deleteOrgUnit: (unitName) => request(`org-units?unit_name=${encodeURIComponent(unitName)}`, { method: 'DELETE' }),
 
   salaryHistory: (employeeId) => request(`salary-history?employeeId=${encodeURIComponent(employeeId)}`),
