@@ -1,0 +1,86 @@
+// api/[[...path]].mjs
+//
+// Single catch-all Vercel function — this is the ONLY file in /api. Keeps us
+// under the Hobby plan's 12-function cap the same way Ops Dash does it.
+// All real logic lives in /lib and gets imported + registered below.
+//
+// Routing: Vercel's [[...path]] catch-all puts the matched segments in
+// req.query.path as an array. We join them with "/" and look up the exact
+// route name in `routes`.
+//
+// Body parsing: bodyParser is off (see vercel.json) so we control it here.
+// Routes that need the raw, unparsed body (e.g. webhook HMAC verification)
+// go in RAW_BODY_ROUTES and get req.rawBody instead of req.body.
+
+import { handleHealth } from '../lib/health.mjs';
+import { handleLogin, handleLogout, handleMe, requireAuth } from '../lib/auth.mjs';
+// import { handleExample } from '../lib/example-sheets-handler.mjs'; // template — not wired in
+
+export const config = {
+  api: { bodyParser: false },
+  maxDuration: 60,
+};
+
+// Routes that must receive the raw body untouched (webhook signature checks).
+// Example once you add one: new Set(['webhooks/slack-events'])
+const RAW_BODY_ROUTES = new Set([]);
+
+// name -> handler. Add every new endpoint here.
+// Wrap anything sensitive in requireAuth(...) — everything except
+// health/auth/login should be wrapped once real HR data is involved.
+const routes = {
+  health: handleHealth,
+  'auth/login': handleLogin,
+  'auth/logout': handleLogout,
+  'auth/me': handleMe,
+  // 'example': requireAuth(handleExample),
+};
+
+async function readRawBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+export default async function handler(req, res) {
+  const segments = Array.isArray(req.query.path) ? req.query.path : [req.query.path].filter(Boolean);
+  const routeName = segments.join('/');
+
+  const fn = routes[routeName];
+  if (!fn) {
+    res.status(404).json({ error: `No route for "${routeName}"` });
+    return;
+  }
+
+  try {
+    if (RAW_BODY_ROUTES.has(routeName)) {
+      req.rawBody = await readRawBody(req);
+    } else if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const raw = await readRawBody(req);
+      if (raw.length) {
+        const contentType = req.headers['content-type'] || '';
+        if (contentType.includes('application/json')) {
+          try {
+            req.body = JSON.parse(raw.toString('utf8'));
+          } catch {
+            res.status(400).json({ error: 'Invalid JSON body' });
+            return;
+          }
+        } else {
+          req.rawBody = raw;
+        }
+      } else {
+        req.body = {};
+      }
+    }
+
+    await fn(req, res);
+  } catch (err) {
+    console.error(`[api/${routeName}]`, err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+}
