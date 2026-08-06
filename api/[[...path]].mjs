@@ -26,6 +26,7 @@ import { handleSalaryHistory } from '../lib/salary-history.mjs';
 import { handlePromotionHistory } from '../lib/promotion-history.mjs';
 import { handleSkills } from '../lib/skills.mjs';
 import { handleMigrateFromSheets } from '../lib/migrate.mjs';
+import { handleOrgCleanup } from '../lib/org-cleanup.mjs';
 import { handleAccounts } from '../lib/accounts.mjs';
 import { handleLeaveBalances, handleLeaveRequests } from '../lib/leave.mjs';
 
@@ -72,6 +73,13 @@ const routes = {
   // GET so it can be triggered by visiting the URL directly in a browser
   // tab while logged in — see lib/migrate.mjs for the safety/re-run notes.
   'admin/migrate-from-sheets': requireRole('Administrator')(handleMigrateFromSheets),
+
+  // One-time-ish data fix: retype the old "Company" org units to "Team"
+  // (CC/CC Landscape/Pelago are separate companies externally but just
+  // teams internally) and set a custom sort_order for Operations' direct
+  // children so the creative companies group together. See
+  // lib/org-cleanup.mjs. Same "visit the URL" pattern, safe to re-run.
+  'admin/org-cleanup': requireRole('Administrator')(handleOrgCleanup),
 
   // Phase 3 — who has a login. See lib/accounts.mjs.
   'admin/accounts': requireRole('Administrator')(handleAccounts),
