@@ -29,6 +29,7 @@ import { handleMigrateFromSheets } from '../lib/migrate.mjs';
 import { handleOrgCleanup } from '../lib/org-cleanup.mjs';
 import { handleAccounts } from '../lib/accounts.mjs';
 import { handleLeaveBalances, handleLeaveRequests } from '../lib/leave.mjs';
+import { handlePersonalDocuments, handleCompanyDocuments } from '../lib/documents.mjs';
 
 export const config = {
   api: { bodyParser: false },
@@ -89,6 +90,15 @@ const routes = {
   // lib/leave.mjs itself, same pattern as skills/org-units.
   'leave-requests': requireAuth(handleLeaveRequests),
   'leave-balances': requireAuth(handleLeaveBalances),
+
+  // Phase 2 — Documents (personal + company, built together). Both
+  // requireAuth, not requireRole — same reasoning as skills/org-units/
+  // leave: visibility and mutate-rights are per-row/per-role checks inside
+  // lib/documents.mjs itself, not a flat route-level gate. Both tables are
+  // created defensively (CREATE TABLE IF NOT EXISTS) the first time
+  // they're queried, so no separate migration visit is needed.
+  documents: requireAuth(handlePersonalDocuments),
+  'company-documents': requireAuth(handleCompanyDocuments),
 };
 
 async function readRawBody(req) {
