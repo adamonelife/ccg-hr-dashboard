@@ -140,10 +140,11 @@ need shows up.
   Employee-role account can currently edit their own record like anyone
   else within their own scope. Worth tightening before rolling accounts
   out beyond leads.
-- **Main Lead / Operations / Executive approving leave for their scope:**
-  still pending — this permission model only covers card/profile
-  visibility so far, not leave approval routing (that's Phase 3's Leave
-  Management piece, not yet built).
+- ~~Main Lead / Operations / Executive approving leave for their scope~~
+  *(built)* — Leave Management reuses this same visibility model for the
+  approvals queue (`getVisibleEmployeeIds()` in `lib/permissions.mjs`, used
+  by `lib/leave.mjs`): a lead approves requests for their scope,
+  Administrator/Director/HR see everyone's.
 - Maps onto the existing `permission_role` field on `employees`
   (`Employee`, `Team Lead`, `Main Lead`, `HR`, `Finance`, `Director`,
   `Administrator`) — role casing had to be normalized to match this exactly
@@ -176,11 +177,63 @@ need shows up.
       after adding, not just appended (`lib/skills.mjs` PATCH/DELETE,
       `SkillRow` in `EmployeeCard.jsx`). Skill level is now a controlled
       0–5 scale, not free text.
-- [ ] Phase 2 — Notifications + Documents + Disciplinary Records
-- [x] Phase 3 — Multi-user login (see permission model notes above) — real
-      per-person accounts, password auth, org-chart-based Employee Card
-      visibility scoping. Leave Management itself (the other half of
-      Phase 3) not yet built.
+- [ ] Phase 2 — Notifications + Disciplinary Records still outstanding
+      (Documents done — see below)
+- [x] Phase 3 — Multi-user login + Leave Management — both halves done.
+      Leave requests (`lib/leave.mjs`, `src/pages/Leave.jsx`) use the same
+      org-chart/lead visibility scoping as Employee Cards: a lead approves
+      requests for their scope, Administrator/Director/HR see everyone,
+      everyone sees their own. Rules: business days only (weekends
+      excluded from the day count); exceeding the remaining balance is a
+      hard block, not a warning; only the employee themselves or
+      Administrator/Director/HR can submit a request on someone's behalf
+      (not a lead). Annual leave resets on each employee's own start_date
+      anniversary, not the calendar year — Sick/Emergency stay on a plain
+      calendar year (flag it if that should change too). `leave_balances`/
+      `leave_requests` were already in `db/schema.sql` as placeholder
+      tables from the Postgres migration, so no new migration was needed.
+      **Operationally important:** nobody can be approved for a leave type
+      until an Administrator/Director/HR sets their allocation via "Manage
+      leave allocations" on the Leave page — zero allocated = zero
+      remaining = every request blocked by design, not a bug.
+- [x] Branding — CCG logo (`src/public/ccglogo.png`) + "HR" wordmark
+      (`src/Logo.jsx`) now shown on login, set-password, the initial
+      session-check loading screen, and the main dashboard header.
+- [x] Org unit "Move" (reparent) — a unit can be moved under a different
+      parent from the Org Chart page without deleting/recreating it
+      (`lib/org.mjs` PATCH now accepts `parent_unit_name`, with a
+      recursive check blocking a unit from being moved under its own
+      sub-unit). Added specifically so the old per-company "…Lead" filler
+      teams (e.g. "CCL Lead", "I&I Lead") can be emptied out and deleted
+      now that the real "Assign lead" feature covers that instead.
+- [ ] Org chart visual connector lines — attempted via CSS (border/
+      pseudo-element technique) but didn't render correctly live (lines
+      ran straight down, didn't attach to nodes, no stagger) — reverted
+      back to plain indentation for now. Needs another pass, ideally
+      verified against a real screenshot before re-delivering rather than
+      reasoned about blind, since this is the second CSS-only attempt that
+      hasn't matched what actually renders in the browser.
+- [x] Documents — personal + company, built together
+      (`lib/documents.mjs`, `src/pages/Documents.jsx`). Personal documents
+      (`documents` table — Passport/KITAS/contracts/etc., Drive-linked)
+      are visible to the employee themselves plus
+      Administrator/HR/Finance/Director see everyone's — deliberately
+      flatter than the org-chart/lead visibility used for Employee
+      Cards/Leave; a Team Lead does not get their team's personal
+      documents just for being a lead. Company documents
+      (`company_documents`, new table) are grouped into folders and gated
+      by a role-tier hierarchy (Employee < Team Lead < Main Lead < HR <
+      Finance < Director < Administrator — each role sees its own tier and
+      everything below); upload restricted to Administrator/HR/Director.
+      Both are Drive-link + metadata only, same as the rest of the app's
+      Drive integration — no in-app file upload/storage was built.
+      `company_documents` creates itself defensively (`CREATE TABLE IF NOT
+      EXISTS`) the first time it's queried, so — unlike the org_units
+      sort_order column — there's no separate migration URL to remember to
+      visit.
+- [ ] Phase 2 remainder — Notifications (KITAS/passport/contract/probation
+      expiry) + Disciplinary Records still outstanding; Documents (above)
+      is done.
 - [ ] Phase 4 — Dashboards
 - [ ] Phase 5 — Equipment Register, Notes, Policies
 - [ ] Phase 6 — Performance Reviews, Skills Matrix, Training, Career Progression
