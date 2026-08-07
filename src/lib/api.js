@@ -10,6 +10,18 @@ async function request(path, opts = {}) {
   return data;
 }
 
+// For real file uploads (Documents' "upload a file" path) — deliberately
+// no Content-Type header set here. The browser sets
+// multipart/form-data; boundary=... itself when the body is a FormData
+// instance, and setting it manually would drop the boundary and break
+// parsing on the server (lib/multipart.mjs).
+async function requestForm(path, formData) {
+  const res = await fetch(`/api/${path}`, { method: 'POST', body: formData });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
 export const api = {
   me: () => request('auth/me'),
   // Leave email blank/undefined for the master-admin bootstrap login.
@@ -75,14 +87,20 @@ export const api = {
   decideLeaveRequest: (id, status) =>
     request('leave-requests', { method: 'PATCH', body: JSON.stringify({ id, status }) }),
 
-  // Personal documents — always scoped to one employee.
+  // Personal documents — always scoped to one employee. addDocument is the
+  // original "paste a Drive link" path (JSON); addDocumentWithFile is a
+  // real upload (FormData — pick a file, it lands in that employee's
+  // auto-created Drive folder). Both hit the same endpoint; the server
+  // tells them apart by Content-Type.
   documents: (employeeId) => request(`documents?employeeId=${encodeURIComponent(employeeId)}`),
   addDocument: (data) => request('documents', { method: 'POST', body: JSON.stringify(data) }),
+  addDocumentWithFile: (formData) => requestForm('documents', formData),
   deleteDocument: (id) => request(`documents?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   // Company-wide documents — folder + role-tier gated, not tied to any one
   // employee. GET only ever returns what the caller's role can see.
   companyDocuments: () => request('company-documents'),
   addCompanyDocument: (data) => request('company-documents', { method: 'POST', body: JSON.stringify(data) }),
+  addCompanyDocumentWithFile: (formData) => requestForm('company-documents', formData),
   deleteCompanyDocument: (id) => request(`company-documents?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
