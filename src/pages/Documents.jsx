@@ -352,7 +352,6 @@ function CompanyDocuments({ canUpload }) {
 }
 
 function AddCompanyDocumentForm({ onAdded }) {
-  const [folder, setFolder] = useState('');
   const [accessRole, setAccessRole] = useState('Employee');
   const [title, setTitle] = useState('');
   const [file, setFile] = useState(null);
@@ -363,22 +362,20 @@ function AddCompanyDocumentForm({ onAdded }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!folder.trim() || !title.trim()) return;
+    if (!title.trim()) return;
     setSaving(true);
     setError('');
     try {
       if (file) {
         const formData = new FormData();
-        formData.append('folder', folder);
         formData.append('access_role', accessRole);
         formData.append('title', title);
         if (notes) formData.append('notes', notes);
         formData.append('file', file, file.name);
         await api.addCompanyDocumentWithFile(formData);
       } else {
-        await api.addCompanyDocument({ folder, access_role: accessRole, title, drive_link: driveLink, notes });
+        await api.addCompanyDocument({ access_role: accessRole, title, drive_link: driveLink, notes });
       }
-      setFolder('');
       setTitle('');
       setFile(null);
       setDriveLink('');
@@ -394,18 +391,12 @@ function AddCompanyDocumentForm({ onAdded }) {
   return (
     <div style={{ marginTop: 12 }}>
       <p style={styles.hint}>
-        "Minimum access" controls who can see it — e.g. picking "Team Lead" means Team Lead and everyone above
-        (Main Lead, HR, Finance, Director, Administrator) see it, but plain Employees won't. Uploading a file puts it
-        in that tier's auto-created Drive folder (Company/{accessRole}); pasting a link instead leaves it wherever it
-        already lives.
+        Documents are grouped by access tier — picking "Team Lead" both controls who can see it (Team Lead and
+        everyone above: Main Lead, HR, Finance, Director, Administrator — plain Employees won't) and which folder it
+        lands in. Uploading a file puts it in that tier's auto-created Drive folder (Company/{accessRole}); pasting a
+        link instead leaves it wherever it already lives.
       </p>
       <form onSubmit={handleSubmit} style={styles.inlineForm}>
-        <input
-          placeholder="Folder (e.g. Company Policies)"
-          value={folder}
-          onChange={(e) => setFolder(e.target.value)}
-          style={styles.input}
-        />
         <select value={accessRole} onChange={(e) => setAccessRole(e.target.value)} style={styles.input}>
           {ROLE_RANK.map((r) => (
             <option key={r} value={r}>
