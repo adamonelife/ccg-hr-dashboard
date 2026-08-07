@@ -177,6 +177,7 @@ function DocumentsPanel({ employeeId }) {
 
 function AddDocumentForm({ employeeId, onAdded }) {
   const [documentType, setDocumentType] = useState(DOCUMENT_TYPES[0]);
+  const [file, setFile] = useState(null);
   const [driveLink, setDriveLink] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -188,13 +189,24 @@ function AddDocumentForm({ employeeId, onAdded }) {
     setSaving(true);
     setError('');
     try {
-      await api.addDocument({
-        employee_id: employeeId,
-        document_type: documentType,
-        drive_link: driveLink,
-        expiry_date: expiryDate || undefined,
-        notes,
-      });
+      if (file) {
+        const formData = new FormData();
+        formData.append('employee_id', employeeId);
+        formData.append('document_type', documentType);
+        if (expiryDate) formData.append('expiry_date', expiryDate);
+        if (notes) formData.append('notes', notes);
+        formData.append('file', file, file.name);
+        await api.addDocumentWithFile(formData);
+      } else {
+        await api.addDocument({
+          employee_id: employeeId,
+          document_type: documentType,
+          drive_link: driveLink,
+          expiry_date: expiryDate || undefined,
+          notes,
+        });
+      }
+      setFile(null);
       setDriveLink('');
       setExpiryDate('');
       setNotes('');
@@ -215,10 +227,13 @@ function AddDocumentForm({ employeeId, onAdded }) {
           </option>
         ))}
       </select>
+      <input type="file" onChange={(e) => setFile(e.target.files[0] || null)} style={styles.input} />
+      <span style={styles.orHint}>or</span>
       <input
-        placeholder="Google Drive link"
+        placeholder="Paste a Google Drive link instead"
         value={driveLink}
         onChange={(e) => setDriveLink(e.target.value)}
+        disabled={!!file}
         style={{ ...styles.input, flex: 2 }}
       />
       <input
@@ -340,6 +355,7 @@ function AddCompanyDocumentForm({ onAdded }) {
   const [folder, setFolder] = useState('');
   const [accessRole, setAccessRole] = useState('Employee');
   const [title, setTitle] = useState('');
+  const [file, setFile] = useState(null);
   const [driveLink, setDriveLink] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -351,9 +367,20 @@ function AddCompanyDocumentForm({ onAdded }) {
     setSaving(true);
     setError('');
     try {
-      await api.addCompanyDocument({ folder, access_role: accessRole, title, drive_link: driveLink, notes });
+      if (file) {
+        const formData = new FormData();
+        formData.append('folder', folder);
+        formData.append('access_role', accessRole);
+        formData.append('title', title);
+        if (notes) formData.append('notes', notes);
+        formData.append('file', file, file.name);
+        await api.addCompanyDocumentWithFile(formData);
+      } else {
+        await api.addCompanyDocument({ folder, access_role: accessRole, title, drive_link: driveLink, notes });
+      }
       setFolder('');
       setTitle('');
+      setFile(null);
       setDriveLink('');
       setNotes('');
       onAdded();
@@ -368,7 +395,9 @@ function AddCompanyDocumentForm({ onAdded }) {
     <div style={{ marginTop: 12 }}>
       <p style={styles.hint}>
         "Minimum access" controls who can see it — e.g. picking "Team Lead" means Team Lead and everyone above
-        (Main Lead, HR, Finance, Director, Administrator) see it, but plain Employees won't.
+        (Main Lead, HR, Finance, Director, Administrator) see it, but plain Employees won't. Uploading a file puts it
+        in that tier's auto-created Drive folder (Company/{accessRole}); pasting a link instead leaves it wherever it
+        already lives.
       </p>
       <form onSubmit={handleSubmit} style={styles.inlineForm}>
         <input
@@ -390,10 +419,13 @@ function AddCompanyDocumentForm({ onAdded }) {
           onChange={(e) => setTitle(e.target.value)}
           style={{ ...styles.input, flex: 1 }}
         />
+        <input type="file" onChange={(e) => setFile(e.target.files[0] || null)} style={styles.input} />
+        <span style={styles.orHint}>or</span>
         <input
-          placeholder="Google Drive link"
+          placeholder="Paste a Google Drive link instead"
           value={driveLink}
           onChange={(e) => setDriveLink(e.target.value)}
+          disabled={!!file}
           style={{ ...styles.input, flex: 2 }}
         />
         <input
@@ -414,6 +446,7 @@ function AddCompanyDocumentForm({ onAdded }) {
 const styles = {
   section: { marginTop: 24, borderTop: '1px solid #eee', paddingTop: 16 },
   hint: { color: '#666', fontSize: 13 },
+  orHint: { fontSize: 12, color: '#999' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
   th: { textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid #ddd', color: '#555' },
   td: { padding: '8px 10px', borderBottom: '1px solid #eee' },
