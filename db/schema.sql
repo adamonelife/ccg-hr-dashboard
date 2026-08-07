@@ -228,6 +228,36 @@ CREATE TABLE documents (
 CREATE INDEX idx_documents_employee ON documents(employee_id);
 CREATE INDEX idx_documents_expiry ON documents(expiry_date) WHERE expiry_date IS NOT NULL;
 
+-- ─── Company-wide documents (Phase 2, built alongside personal docs) ────
+-- Separate table from `documents` above since these aren't tied to any one
+-- employee — they're organisation-wide files (policies, handbooks, forms)
+-- grouped into folders and gated by role tier rather than by org-chart
+-- scope. `access_role` is the minimum permission_role "rank" required to
+-- see a folder's documents (see lib/documents.mjs's ROLE_RANK — same order
+-- as the CHECK below, low to high); `folder` is just a free-text display
+-- grouping, doesn't have to match access_role's name 1:1. `uploaded_by` is
+-- plain TEXT rather than a FK into employees on purpose — the master-admin
+-- bootstrap login has no employee_id at all, and a FK here would reject
+-- every upload made through that login.
+-- lib/documents.mjs also creates this table defensively (CREATE TABLE IF
+-- NOT EXISTS) the first time it's queried, so an existing live database
+-- doesn't need a manual migration step for this one.
+
+CREATE TABLE company_documents (
+  id             SERIAL PRIMARY KEY,
+  folder         TEXT NOT NULL,
+  access_role    TEXT NOT NULL CHECK (access_role IN (
+                    'Employee', 'Team Lead', 'Main Lead', 'HR', 'Finance', 'Director', 'Administrator'
+                  )),
+  title          TEXT NOT NULL,
+  drive_link     TEXT,
+  notes          TEXT,
+  uploaded_by    TEXT,
+  uploaded_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_company_documents_access_role ON company_documents(access_role);
+
 -- ─── Placeholder: Disciplinary records (Phase 2, added per Adam's ask) ──
 -- Deliberately separate from `documents` even though disciplinary records
 -- could partly be files — this table is the structured log (date, type,
