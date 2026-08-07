@@ -74,4 +74,15 @@ export const api = {
   submitLeaveRequest: (data) => request('leave-requests', { method: 'POST', body: JSON.stringify(data) }),
   decideLeaveRequest: (id, status) =>
     request('leave-requests', { method: 'PATCH', body: JSON.stringify({ id, status }) }),
+
+  // Personal documents — always scoped to one employee.
+  documents: (employeeId) => request(`documents?employeeId=${encodeURIComponent(employeeId)}`),
+  addDocument: (data) => request('documents', { method: 'POST', body: JSON.stringify(data) }),
+  deleteDocument: (id) => request(`documents?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // Company-wide documents — folder + role-tier gated, not tied to any one
+  // employee. GET only ever returns what the caller's role can see.
+  companyDocuments: () => request('company-documents'),
+  addCompanyDocument: (data) => request('company-documents', { method: 'POST', body: JSON.stringify(data) }),
+  deleteCompanyDocument: (id) => request(`company-documents?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
