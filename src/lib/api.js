@@ -103,4 +103,18 @@ export const api = {
   addCompanyDocument: (data) => request('company-documents', { method: 'POST', body: JSON.stringify(data) }),
   addCompanyDocumentWithFile: (formData) => requestForm('company-documents', formData),
   deleteCompanyDocument: (id) => request(`company-documents?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // Self-service change requests — first-login setup gate + the permanent
+  // HR-approval workflow for further self-edits. myChangeRequests is used
+  // both to show "pending" status inline on the Employee Card/Form and by
+  // the review queue's own employee-scoped drill-in; changeRequestQueue is
+  // the flat Pending list for Administrator/HR/Director; decideChangeRequest
+  // approves/rejects one.
+  myChangeRequests: (employeeId) => request(`change-requests?employeeId=${encodeURIComponent(employeeId)}`),
+  changeRequestQueue: () => request('change-requests?scope=queue'),
+  decideChangeRequest: (id, status, reviewNotes) =>
+    request('change-requests', {
+      method: 'PATCH',
+      body: JSON.stringify({ id, status, review_notes: reviewNotes || undefined }),
+    }),
 };
