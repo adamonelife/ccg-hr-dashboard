@@ -162,8 +162,11 @@ ALTER TABLE org_units
 CREATE TABLE skills (
   id            SERIAL PRIMARY KEY,
   employee_id   TEXT NOT NULL REFERENCES employees(employee_id) ON DELETE CASCADE,
+  -- 'Design Discipline' powers a dedicated Architecture/Landscape/Interior
+  -- checkbox widget on the Employee Card (src/pages/EmployeeCard.jsx),
+  -- kept separate from the general "Add skill" form's category choices.
   category      TEXT NOT NULL CHECK (category IN (
-                  'Software Skill', 'Technical Skill', 'Soft Skill', 'Language',
+                  'Design Discipline', 'Software Skill', 'Technical Skill', 'Soft Skill', 'Language',
                   'Certification', 'Training Completed', 'Training Required', 'Career Path'
                 )),
   item          TEXT NOT NULL,
@@ -250,6 +253,7 @@ CREATE TABLE company_documents (
                     'Employee', 'Team Lead', 'Main Lead', 'HR', 'Finance', 'Director', 'Administrator'
                   )),
   title          TEXT NOT NULL,
+  drive_file_id  TEXT,
   drive_link     TEXT,
   notes          TEXT,
   uploaded_by    TEXT,
