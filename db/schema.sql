@@ -90,6 +90,7 @@ CREATE TABLE employees (
   photo_url                       TEXT,
   email                            TEXT,
   phone                            TEXT,
+  address                          TEXT,
   emergency_contact_name          TEXT,
   emergency_contact_phone         TEXT,
   emergency_contact_relationship  TEXT,
@@ -125,6 +126,12 @@ CREATE TABLE employees (
   permission_role                 TEXT NOT NULL DEFAULT 'Employee' CHECK (permission_role IN (
                                      'Employee', 'Team Lead', 'Main Lead', 'HR', 'Finance', 'Director', 'Administrator'
                                    )),
+  -- NULL until a real per-person login finishes the forced first-login
+  -- setup screen (src/pages/Setup.jsx) — gates access to the rest of the
+  -- app while NULL, and switches every further self-edit to their own
+  -- record from "applies immediately" to "submits a change_requests row"
+  -- once set. See lib/employees.mjs.
+  profile_setup_completed_at      TIMESTAMPTZ,
   created_at                      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at                      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -332,3 +339,42 @@ CREATE TABLE user_accounts (
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_login_at            TIMESTAMPTZ
 );
+
+-- ─── Self-service change requests (built alongside first-login setup) ──
+-- Once profile_setup_completed_at is set, further self-edits to a plain
+-- Employee/Team Lead/Main Lead/Finance login's own profile fields
+-- (SELF_SERVICE_FIELDS in lib/employees.mjs) or their own skills entries
+-- (lib/skills.mjs) land here as a Pending row instead of writing directly,
+-- and only take effect once an Administrator/HR/Director approves it from
+-- the "Change requests" nav tab (src/pages/ChangeRequests.jsx). One table
+-- covers all four request_type values rather than one table per type —
+-- they share every concern except what's actually being changed, and that
+-- part is different enough per type (a handful of profile fields vs. one
+-- skill row) that a discriminated `payload` blob is a better fit than
+-- juggling four narrow tables. `payload` is TEXT (JSON.stringify/parse at
+-- the boundary), not JSONB — this schema doesn't use JSONB anywhere else,
+-- so there's no reason to take on that column type for something this
+-- simple. lib/change-requests.mjs also creates this table defensively
+-- (CREATE TABLE IF NOT EXISTS) the first time it's queried, same as
+-- company_documents above, so an existing live database doesn't need a
+-- manual migration step for this either.
+
+CREATE TABLE change_requests (
+  id             SERIAL PRIMARY KEY,
+  employee_id    TEXT NOT NULL REFERENCES employees(employee_id) ON DELETE CASCADE,
+  request_type   TEXT NOT NULL CHECK (request_type IN ('profile', 'skill_add', 'skill_update', 'skill_delete')),
+  -- Set for skill_update/skill_delete. Deliberately no FK — if the skills
+  -- row this points at gets deleted directly by an admin while the request
+  -- is still pending, approving it should fail gracefully, not cascade-
+  -- delete the request itself.
+  skill_id       INTEGER,
+  payload        TEXT NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected')),
+  requested_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reviewed_by    TEXT,
+  reviewed_at    TIMESTAMPTZ,
+  review_notes   TEXT
+);
+
+CREATE INDEX idx_change_requests_employee ON change_requests(employee_id);
+CREATE INDEX idx_change_requests_status ON change_requests(status);
