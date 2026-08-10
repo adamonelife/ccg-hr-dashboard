@@ -4,7 +4,11 @@ import { api } from '../lib/api.js';
 // Keep in sync with the CHECK constraint on skills.level in db/schema.sql.
 const LEVELS = ['', '0', '1', '2', '3', '4', '5'];
 
-// Keep in sync with CATEGORIES in lib/skills.mjs.
+// Keep in sync with CATEGORIES in lib/skills.mjs — minus 'Design
+// Discipline', which lib/skills.mjs accepts but this list deliberately
+// excludes: that category has its own dedicated widget
+// (DesignDisciplinePanel, below) rather than going through the generic
+// "Add skill" form, so it never ends up with stray free-text entries.
 const CATEGORIES = [
   'Software Skill',
   'Technical Skill',
@@ -15,6 +19,9 @@ const CATEGORIES = [
   'Training Required',
   'Career Path',
 ];
+
+const DESIGN_DISCIPLINE_CATEGORY = 'Design Discipline';
+const DISCIPLINE_ITEMS = ['Architecture', 'Landscape', 'Interior'];
 
 export default function EmployeeCard({ employeeId, onBack, onEdit }) {
   const [employee, setEmployee] = useState(null);
@@ -76,6 +83,8 @@ export default function EmployeeCard({ employeeId, onBack, onEdit }) {
           </button>
         </div>
 
+        <DesignDisciplinePanel employeeId={employeeId} skills={skills} onChanged={load} />
+
         {CATEGORIES.map((cat) => (
           <div key={cat} style={styles.section}>
             <h3 style={styles.sectionTitle}>{cat}</h3>
@@ -93,6 +102,98 @@ export default function EmployeeCard({ employeeId, onBack, onEdit }) {
 
         <AddSkillForm employeeId={employeeId} onAdded={load} />
       </div>
+    </div>
+  );
+}
+
+// Fixed three-checkbox widget, deliberately not the generic add/edit/
+// delete-per-row flow used everywhere else on this card — Architecture/
+// Landscape/Interior are a closed set, so this reconciles the three
+// checkbox+level states against whatever skills rows already exist
+// (create/update/delete as needed) in one "Save", via the same
+// add/update/delete endpoints the rest of the card uses.
+function DesignDisciplinePanel({ employeeId, skills, onChanged }) {
+  const entries = skills.filter((s) => s.category === DESIGN_DISCIPLINE_CATEGORY);
+  const byItem = Object.fromEntries(entries.map((e) => [e.item, e]));
+
+  const [checked, setChecked] = useState(() =>
+    Object.fromEntries(DISCIPLINE_ITEMS.map((item) => [item, Boolean(byItem[item])]))
+  );
+  const [levels, setLevels] = useState(() =>
+    Object.fromEntries(DISCIPLINE_ITEMS.map((item) => [item, byItem[item]?.level || '']))
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  // Re-sync whenever the underlying skills list changes (after a save
+  // reloads it, or when switching to a different employee's card).
+  useEffect(() => {
+    const current = skills.filter((s) => s.category === DESIGN_DISCIPLINE_CATEGORY);
+    const currentByItem = Object.fromEntries(current.map((e) => [e.item, e]));
+    setChecked(Object.fromEntries(DISCIPLINE_ITEMS.map((item) => [item, Boolean(currentByItem[item])])));
+    setLevels(Object.fromEntries(DISCIPLINE_ITEMS.map((item) => [item, currentByItem[item]?.level || ''])));
+  }, [skills]);
+
+  async function handleSave() {
+    setSaving(true);
+    setError('');
+    try {
+      await Promise.all(
+        DISCIPLINE_ITEMS.map(async (item) => {
+          const existing = byItem[item];
+          const isChecked = checked[item];
+          const level = levels[item];
+          if (isChecked && !existing) {
+            await api.addSkillEntry({ employee_id: employeeId, category: DESIGN_DISCIPLINE_CATEGORY, item, level });
+          } else if (isChecked && existing) {
+            if ((existing.level || '') !== level) {
+              await api.updateSkillEntry({ id: existing.id, category: DESIGN_DISCIPLINE_CATEGORY, item, level });
+            }
+          } else if (!isChecked && existing) {
+            await api.deleteSkillEntry(existing.id);
+          }
+        })
+      );
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={styles.section}>
+      <h3 style={styles.sectionTitle}>Design Discipline</h3>
+      <div style={styles.disciplineRow}>
+        {DISCIPLINE_ITEMS.map((item) => (
+          <label key={item} style={styles.disciplineLabel}>
+            <input
+              type="checkbox"
+              checked={checked[item]}
+              onChange={(e) => setChecked((c) => ({ ...c, [item]: e.target.checked }))}
+            />
+            {item}
+            {checked[item] && (
+              <select
+                value={levels[item]}
+                onChange={(e) => setLevels((l) => ({ ...l, [item]: e.target.value }))}
+                style={styles.disciplineLevel}
+              >
+                {LEVELS.map((l) => (
+                  <option key={l} value={l}>
+                    {l === '' ? 'Level (n/a)' : l}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
+        ))}
+        <button onClick={handleSave} disabled={saving} style={styles.addButton}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      {error && <p style={styles.error}>{error}</p>}
     </div>
   );
 }
@@ -302,6 +403,9 @@ const styles = {
   },
   section: { marginBottom: 16, borderTop: '1px solid #eee', paddingTop: 12 },
   sectionTitle: { fontSize: 14, margin: '0 0 6px 0' },
+  disciplineRow: { display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' },
+  disciplineLabel: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 },
+  disciplineLevel: { padding: 4, fontSize: 12, border: '1px solid #ccc', borderRadius: 4 },
   list: { margin: 0, paddingLeft: 0, fontSize: 14, listStyle: 'none' },
   notes: { color: '#777' },
   empty: { fontSize: 13, color: '#aaa', margin: 0 },
