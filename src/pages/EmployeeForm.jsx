@@ -1,6 +1,27 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
+// Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES and
+// lib/employees.mjs's SELF_SERVICE_FIELDS — UI-only copies (the real
+// enforcement is server-side); used here just to disable the fields a
+// self-editing, non-trusted employee can't touch, and to switch the save
+// button's behaviour/copy between "saves immediately" and "submits for
+// HR approval." Keep in sync with those two if either list ever changes.
+const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR'];
+const SELF_SERVICE_FIELDS = [
+  'nickname',
+  'photo_url',
+  'phone',
+  'address',
+  'emergency_contact_name',
+  'emergency_contact_phone',
+  'emergency_contact_relationship',
+  'nationality',
+  'date_of_birth',
+  'religion',
+  'office_location',
+];
+
 const SECTIONS = [
   {
     title: 'Identity',
@@ -17,6 +38,7 @@ const SECTIONS = [
     title: 'Personal',
     fields: [
       { key: 'date_of_birth', label: 'Date of birth', type: 'date' },
+      { key: 'address', label: 'Address' },
       { key: 'nationality', label: 'Nationality' },
       {
         key: 'religion',
@@ -102,13 +124,24 @@ const EMPTY = SECTIONS.flatMap((s) => s.fields).reduce(
   {}
 );
 
-export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
+export default function EmployeeForm({ employeeId, session, onSaved, onCancel }) {
   const isEdit = Boolean(employeeId);
+  // Self-editing your own record without being one of the trusted roles
+  // means every field outside SELF_SERVICE_FIELDS is read-only, and saving
+  // submits a change request instead of writing immediately — see
+  // lib/employees.mjs's PATCH handler, which enforces the same thing
+  // server-side regardless of what this does client-side.
+  const isSelfEdit = isEdit && session?.employee_id === employeeId;
+  const isTrusted = FULL_VISIBILITY_ROLES.includes(session?.role);
+  const selfServiceOnly = isSelfEdit && !isTrusted;
+
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [submittedMsg, setSubmittedMsg] = useState('');
+  const [pendingRequests, setPendingRequests] = useState([]);
   // Live department/team names from the OrgUnits sheet — powers those two
   // dropdowns so they can't drift out of sync with the real org structure.
   const [orgOptions, setOrgOptions] = useState({ departments: [], teams: [] });
@@ -143,6 +176,20 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
       });
   }, []);
 
+  useEffect(() => {
+    if (!selfServiceOnly) return;
+    loadPendingRequests();
+  }, [employeeId, selfServiceOnly]);
+
+  function loadPendingRequests() {
+    api
+      .myChangeRequests(employeeId)
+      .then((data) => setPendingRequests((data.requests || []).filter((r) => r.status === 'Pending')))
+      .catch(() => {
+        // Non-fatal — the form still works without the pending-requests banner.
+      });
+  }
+
   function set(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
   }
@@ -151,9 +198,25 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
     e.preventDefault();
     setSaving(true);
     setError('');
+    setSubmittedMsg('');
     try {
       if (isEdit) {
-        await api.updateEmployee(form);
+        // Self-service, non-trusted: only the allowed fields are editable
+        // anyway (see the disabled inputs below), but send just those —
+        // no reason to round-trip the rest, and it keeps the diff HR sees
+        // on the change request limited to what actually changed here.
+        const payload = selfServiceOnly
+          ? Object.fromEntries(
+              Object.entries(form).filter(([k]) => k === 'employee_id' || SELF_SERVICE_FIELDS.includes(k))
+            )
+          : form;
+        const data = await api.updateEmployee(payload);
+        if (data.submitted) {
+          setSubmittedMsg('Submitted — your change is pending HR approval.');
+          loadPendingRequests();
+          setSaving(false);
+          return;
+        }
       } else {
         await api.createEmployee(form);
       }
@@ -194,11 +257,27 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
         ← Back to directory
       </button>
       <h2>{isEdit ? form.full_name || 'Edit employee' : 'Add employee'}</h2>
-      {isEdit && (
+      {isEdit && !selfServiceOnly && (
         <button onClick={handleDelete} disabled={deleting} style={styles.deleteButton}>
           {deleting ? 'Deleting…' : 'Delete employee'}
         </button>
       )}
+
+      {selfServiceOnly && (
+        <p style={styles.note}>
+          Contact/personal fields only — anything else here needs HR/Admin to change. Saving a change sends it
+          to HR for approval rather than applying immediately.
+        </p>
+      )}
+
+      {selfServiceOnly && pendingRequests.length > 0 && (
+        <div style={styles.pendingBanner}>
+          You have {pendingRequests.length} change request{pendingRequests.length > 1 ? 's' : ''} awaiting HR
+          approval.
+        </div>
+      )}
+
+      {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
 
       <form onSubmit={handleSubmit}>
         {SECTIONS.map((section) => (
@@ -217,6 +296,7 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
                   currentValue && !baseOptions.includes(currentValue)
                     ? [currentValue, ...baseOptions]
                     : baseOptions;
+                const locked = (isEdit && f.lockOnEdit) || (selfServiceOnly && !SELF_SERVICE_FIELDS.includes(f.key));
 
                 return (
                 <label key={f.key} style={styles.label}>
@@ -226,7 +306,7 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
                     <select
                       value={form[f.key] ?? ''}
                       onChange={(e) => set(f.key, e.target.value)}
-                      disabled={isEdit && f.lockOnEdit}
+                      disabled={locked}
                       required={f.required}
                       style={styles.input}
                     >
@@ -242,7 +322,7 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
                       type="checkbox"
                       checked={form[f.key] === 'TRUE'}
                       onChange={(e) => set(f.key, e.target.checked ? 'TRUE' : 'FALSE')}
-                      disabled={isEdit && f.lockOnEdit}
+                      disabled={locked}
                       style={{ alignSelf: 'flex-start' }}
                     />
                   ) : (
@@ -250,7 +330,7 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
                       type={f.type || 'text'}
                       value={form[f.key] ?? ''}
                       onChange={(e) => set(f.key, e.target.value)}
-                      disabled={isEdit && f.lockOnEdit}
+                      disabled={locked}
                       required={f.required}
                       style={styles.input}
                     />
@@ -265,11 +345,11 @@ export default function EmployeeForm({ employeeId, onSaved, onCancel }) {
         {error && <p style={styles.error}>{error}</p>}
 
         <button type="submit" disabled={saving} style={styles.submit}>
-          {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create employee'}
+          {saving ? 'Saving…' : isEdit ? (selfServiceOnly ? 'Request change' : 'Save changes') : 'Create employee'}
         </button>
       </form>
 
-      {isEdit && (
+      {isEdit && !selfServiceOnly && (
         <>
           <AccountPanel employeeId={employeeId} defaultEmail={form.email} />
           <HistoryPanel
@@ -515,6 +595,16 @@ const styles = {
     marginBottom: 32,
   },
   error: { color: '#c00' },
+  note: { fontSize: 13, color: '#555', margin: '0 0 12px 0' },
+  pendingBanner: {
+    fontSize: 13,
+    background: '#fff8e1',
+    border: '1px solid #f0d878',
+    borderRadius: 4,
+    padding: '8px 12px',
+    marginBottom: 12,
+  },
+  submittedMsg: { fontSize: 13, color: '#2a7', marginBottom: 12 },
   panel: { marginTop: 24, borderTop: '1px solid #eee', paddingTop: 16 },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 },
   th: { textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #ddd', color: '#555' },

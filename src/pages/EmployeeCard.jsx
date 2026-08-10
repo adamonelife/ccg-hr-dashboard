@@ -23,11 +23,31 @@ const CATEGORIES = [
 const DESIGN_DISCIPLINE_CATEGORY = 'Design Discipline';
 const DISCIPLINE_ITEMS = ['Architecture', 'Landscape', 'Interior'];
 
-export default function EmployeeCard({ employeeId, onBack, onEdit }) {
+// Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES — see
+// EmployeeForm.jsx's copy of the same list for why this stays a plain UI-
+// only array instead of a shared import (server-side is the real gate).
+const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR'];
+
+// Re-exported so src/pages/Setup.jsx (first-login onboarding gate) can
+// reuse the exact same skills widgets instead of forking them — the
+// onboarding screen and the card's own skills section should always look
+// and behave identically.
+export { LEVELS, CATEGORIES };
+
+export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
   const [employee, setEmployee] = useState(null);
   const [skills, setSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [pendingRequests, setPendingRequests] = useState([]);
+
+  // Once first-login setup is done, a self-editing, non-trusted employee's
+  // skill/Design Discipline changes go through HR approval instead of
+  // applying immediately — lib/skills.mjs enforces this server-side; this
+  // just decides whether to show the "pending approval" messaging/banner.
+  const isSelfEdit = session?.employee_id === employeeId;
+  const isTrusted = FULL_VISIBILITY_ROLES.includes(session?.role);
+  const selfServiceOnly = isSelfEdit && !isTrusted;
 
   useEffect(() => {
     load();
@@ -43,6 +63,16 @@ export default function EmployeeCard({ employeeId, onBack, onEdit }) {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+    if (selfServiceOnly) loadPendingRequests();
+  }
+
+  function loadPendingRequests() {
+    api
+      .myChangeRequests(employeeId)
+      .then((data) => setPendingRequests((data.requests || []).filter((r) => r.status === 'Pending')))
+      .catch(() => {
+        // Non-fatal — the card still works without the pending-requests banner.
+      });
   }
 
   if (loading) return <p>Loading…</p>;
@@ -83,7 +113,19 @@ export default function EmployeeCard({ employeeId, onBack, onEdit }) {
           </button>
         </div>
 
-        <DesignDisciplinePanel employeeId={employeeId} skills={skills} onChanged={load} />
+        {selfServiceOnly && pendingRequests.length > 0 && (
+          <div style={styles.pendingBanner}>
+            You have {pendingRequests.length} change request{pendingRequests.length > 1 ? 's' : ''} awaiting HR
+            approval.
+          </div>
+        )}
+
+        <DesignDisciplinePanel
+          employeeId={employeeId}
+          skills={skills}
+          onChanged={load}
+          selfServiceOnly={selfServiceOnly}
+        />
 
         {CATEGORIES.map((cat) => (
           <div key={cat} style={styles.section}>
@@ -91,7 +133,7 @@ export default function EmployeeCard({ employeeId, onBack, onEdit }) {
             {byCategory[cat]?.length > 0 ? (
               <ul style={styles.list}>
                 {byCategory[cat].map((s) => (
-                  <SkillRow key={s.id} entry={s} onChanged={load} />
+                  <SkillRow key={s.id} entry={s} onChanged={load} selfServiceOnly={selfServiceOnly} />
                 ))}
               </ul>
             ) : (
@@ -100,7 +142,7 @@ export default function EmployeeCard({ employeeId, onBack, onEdit }) {
           </div>
         ))}
 
-        <AddSkillForm employeeId={employeeId} onAdded={load} />
+        <AddSkillForm employeeId={employeeId} onAdded={load} selfServiceOnly={selfServiceOnly} />
       </div>
     </div>
   );
@@ -112,7 +154,7 @@ export default function EmployeeCard({ employeeId, onBack, onEdit }) {
 // checkbox+level states against whatever skills rows already exist
 // (create/update/delete as needed) in one "Save", via the same
 // add/update/delete endpoints the rest of the card uses.
-function DesignDisciplinePanel({ employeeId, skills, onChanged }) {
+export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServiceOnly }) {
   const entries = skills.filter((s) => s.category === DESIGN_DISCIPLINE_CATEGORY);
   const byItem = Object.fromEntries(entries.map((e) => [e.item, e]));
 
@@ -124,6 +166,7 @@ function DesignDisciplinePanel({ employeeId, skills, onChanged }) {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [submittedMsg, setSubmittedMsg] = useState('');
 
   // Re-sync whenever the underlying skills list changes (after a save
   // reloads it, or when switching to a different employee's card).
@@ -137,23 +180,28 @@ function DesignDisciplinePanel({ employeeId, skills, onChanged }) {
   async function handleSave() {
     setSaving(true);
     setError('');
+    setSubmittedMsg('');
     try {
-      await Promise.all(
+      const results = await Promise.all(
         DISCIPLINE_ITEMS.map(async (item) => {
           const existing = byItem[item];
           const isChecked = checked[item];
           const level = levels[item];
           if (isChecked && !existing) {
-            await api.addSkillEntry({ employee_id: employeeId, category: DESIGN_DISCIPLINE_CATEGORY, item, level });
+            return api.addSkillEntry({ employee_id: employeeId, category: DESIGN_DISCIPLINE_CATEGORY, item, level });
           } else if (isChecked && existing) {
             if ((existing.level || '') !== level) {
-              await api.updateSkillEntry({ id: existing.id, category: DESIGN_DISCIPLINE_CATEGORY, item, level });
+              return api.updateSkillEntry({ id: existing.id, category: DESIGN_DISCIPLINE_CATEGORY, item, level });
             }
           } else if (!isChecked && existing) {
-            await api.deleteSkillEntry(existing.id);
+            return api.deleteSkillEntry(existing.id);
           }
+          return null;
         })
       );
+      if (results.some((r) => r?.submitted)) {
+        setSubmittedMsg('Submitted — pending HR approval.');
+      }
       onChanged();
     } catch (err) {
       setError(err.message);
@@ -165,6 +213,7 @@ function DesignDisciplinePanel({ employeeId, skills, onChanged }) {
   return (
     <div style={styles.section}>
       <h3 style={styles.sectionTitle}>Design Discipline</h3>
+      {selfServiceOnly && <p style={styles.note}>Changes here need HR approval once saved.</p>}
       <div style={styles.disciplineRow}>
         {DISCIPLINE_ITEMS.map((item) => (
           <label key={item} style={styles.disciplineLabel}>
@@ -193,29 +242,35 @@ function DesignDisciplinePanel({ employeeId, skills, onChanged }) {
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
+      {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
       {error && <p style={styles.error}>{error}</p>}
     </div>
   );
 }
 
-function AddSkillForm({ employeeId, onAdded }) {
+export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [item, setItem] = useState('');
   const [level, setLevel] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [submittedMsg, setSubmittedMsg] = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!item.trim()) return;
     setSaving(true);
     setError('');
+    setSubmittedMsg('');
     try {
-      await api.addSkillEntry({ employee_id: employeeId, category, item, level, notes });
+      const result = await api.addSkillEntry({ employee_id: employeeId, category, item, level, notes });
       setItem('');
       setLevel('');
       setNotes('');
+      if (result?.submitted) {
+        setSubmittedMsg('Submitted — pending HR approval.');
+      }
       onAdded();
     } catch (err) {
       setError(err.message);
@@ -227,6 +282,8 @@ function AddSkillForm({ employeeId, onAdded }) {
   return (
     <form onSubmit={handleSubmit} style={styles.addForm}>
       <h3 style={styles.sectionTitle}>Add entry</h3>
+      {selfServiceOnly && <p style={styles.note}>New entries need HR approval once submitted.</p>}
+      {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
       {error && <p style={styles.error}>{error}</p>}
       <div style={styles.addFormRow}>
         <select value={category} onChange={(e) => setCategory(e.target.value)} style={styles.input}>
@@ -263,7 +320,7 @@ function AddSkillForm({ employeeId, onAdded }) {
   );
 }
 
-function SkillRow({ entry, onChanged }) {
+export function SkillRow({ entry, onChanged, selfServiceOnly }) {
   const [editing, setEditing] = useState(false);
   const [category, setCategory] = useState(entry.category);
   const [item, setItem] = useState(entry.item);
@@ -271,6 +328,7 @@ function SkillRow({ entry, onChanged }) {
   const [notes, setNotes] = useState(entry.notes || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [submittedMsg, setSubmittedMsg] = useState('');
 
   async function handleSave(e) {
     e.preventDefault();
@@ -278,7 +336,10 @@ function SkillRow({ entry, onChanged }) {
     setSaving(true);
     setError('');
     try {
-      await api.updateSkillEntry({ id: entry.id, category, item, level, notes });
+      const result = await api.updateSkillEntry({ id: entry.id, category, item, level, notes });
+      if (result?.submitted) {
+        setSubmittedMsg('Submitted — pending HR approval.');
+      }
       setEditing(false);
       onChanged();
     } catch (err) {
@@ -293,7 +354,10 @@ function SkillRow({ entry, onChanged }) {
     setSaving(true);
     setError('');
     try {
-      await api.deleteSkillEntry(entry.id);
+      const result = await api.deleteSkillEntry(entry.id);
+      if (result?.submitted) {
+        setSubmittedMsg('Removal submitted — pending HR approval.');
+      }
       onChanged();
     } catch (err) {
       setError(err.message);
@@ -333,6 +397,7 @@ function SkillRow({ entry, onChanged }) {
             Cancel
           </button>
         </form>
+        {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
         {error && <p style={styles.error}>{error}</p>}
       </li>
     );
@@ -353,6 +418,7 @@ function SkillRow({ entry, onChanged }) {
           Delete
         </button>
       </span>
+      {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
       {error && <p style={styles.error}>{error}</p>}
     </li>
   );
@@ -445,6 +511,16 @@ const styles = {
     borderRadius: 4,
     background: '#fff',
     cursor: 'pointer',
+  },
+  note: { fontSize: 12, color: '#888', margin: '0 0 8px 0' },
+  submittedMsg: { fontSize: 13, color: '#2a7', margin: '4px 0 0 0' },
+  pendingBanner: {
+    fontSize: 13,
+    background: '#fff8e1',
+    border: '1px solid #f0d878',
+    borderRadius: 4,
+    padding: '8px 12px',
+    marginBottom: 16,
   },
   error: { color: '#c00' },
 };
