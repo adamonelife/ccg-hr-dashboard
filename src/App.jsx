@@ -8,6 +8,13 @@ import EmployeeCard from './pages/EmployeeCard.jsx';
 import OrgChart from './pages/OrgChart.jsx';
 import Leave from './pages/Leave.jsx';
 import Documents from './pages/Documents.jsx';
+import Setup from './pages/Setup.jsx';
+import ChangeRequests from './pages/ChangeRequests.jsx';
+
+// Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES — see
+// EmployeeForm.jsx/EmployeeCard.jsx's copies of the same list. Gates the
+// "Change requests" nav tab; the route itself is the real enforcement.
+const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR'];
 
 export default function App() {
   const [status, setStatus] = useState('checking'); // checking | authed | anon
@@ -70,6 +77,14 @@ export default function App() {
   }
   if (status === 'anon') return <Login onLoggedIn={loadSession} />;
 
+  // Forced first-login setup — real per-person logins only (the master
+  // admin bootstrap has no employee_id, so it never hits this). Blocks
+  // every other view until profile_setup_completed_at is set; see
+  // src/pages/Setup.jsx and lib/employees.mjs's PATCH handler.
+  if (session?.employee_id && !session.profile_setup_completed_at) {
+    return <Setup employeeId={session.employee_id} onFinished={loadSession} />;
+  }
+
   return <Dashboard session={session} onLoggedOut={() => { setSession(null); setStatus('anon'); }} />;
 }
 
@@ -104,6 +119,11 @@ function Dashboard({ session, onLoggedOut }) {
         <NavLink active={view.name === 'documents'} onClick={() => setView({ name: 'documents' })}>
           Documents
         </NavLink>
+        {FULL_VISIBILITY_ROLES.includes(session?.role) && (
+          <NavLink active={view.name === 'change-requests'} onClick={() => setView({ name: 'change-requests' })}>
+            Change requests
+          </NavLink>
+        )}
       </nav>
 
       {view.name === 'directory' && (
@@ -118,6 +138,7 @@ function Dashboard({ session, onLoggedOut }) {
       {view.name === 'employee' && (
         <EmployeeForm
           employeeId={view.employeeId}
+          session={session}
           onSaved={() => setView({ name: 'directory' })}
           onCancel={() => setView({ name: 'directory' })}
         />
@@ -126,6 +147,7 @@ function Dashboard({ session, onLoggedOut }) {
       {view.name === 'card' && (
         <EmployeeCard
           employeeId={view.employeeId}
+          session={session}
           onBack={() => setView({ name: 'directory' })}
           onEdit={(employeeId) => setView({ name: 'employee', employeeId })}
         />
@@ -136,6 +158,8 @@ function Dashboard({ session, onLoggedOut }) {
       {view.name === 'leave' && <Leave session={session} />}
 
       {view.name === 'documents' && <Documents session={session} />}
+
+      {view.name === 'change-requests' && FULL_VISIBILITY_ROLES.includes(session?.role) && <ChangeRequests />}
     </div>
   );
 }
