@@ -110,6 +110,10 @@ export default function Setup({ employeeId, onFinished }) {
 
         <form onSubmit={handleSaveDetails} style={styles.section}>
           <h3 style={styles.sectionTitle}>Your details</h3>
+          <p style={styles.confirmNote}>
+            We've already filled in what we have on file — please check it's correct and fill in anything
+            that's missing or out of date.
+          </p>
           <div style={styles.grid}>
             {FIELDS.map((f) => (
               <label key={f.key} style={styles.fieldLabel}>
@@ -178,6 +182,15 @@ const styles = {
   intro: { color: '#555', fontSize: 14, lineHeight: 1.5, marginBottom: 24 },
   section: { marginBottom: 16, borderTop: '1px solid #eee', paddingTop: 16 },
   sectionTitle: { fontSize: 14, margin: '0 0 10px 0' },
+  confirmNote: {
+    fontSize: 13,
+    color: '#555',
+    background: '#f5f5f5',
+    border: '1px solid #e5e5e5',
+    borderRadius: 4,
+    padding: '8px 12px',
+    margin: '0 0 14px 0',
+  },
   grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   fieldLabel: { display: 'flex', flexDirection: 'column', fontSize: 12, color: '#555', gap: 4 },
   input: { padding: 8, fontSize: 13, border: '1px solid #ccc', borderRadius: 4 },
