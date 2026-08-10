@@ -135,11 +135,14 @@ need shows up.
   just not full profile/skills detail outside their scope. Directory-wide
   restriction (e.g. a plain Employee seeing only their own row) is a
   separate, not-yet-built piece.
-- **Employee role self-service (view own record read-only, submit edit
-  requests rather than editing directly):** not yet built — a plain
-  Employee-role account can currently edit their own record like anyone
-  else within their own scope. Worth tightening before rolling accounts
-  out beyond leads.
+- ~~Employee role self-service (view own record read-only, submit edit
+  requests rather than editing directly)~~ *(built — see Status below)* —
+  a plain Employee-role account (or Team Lead/Main Lead/Finance) now goes
+  through a forced first-login setup, then every further self-edit to
+  their own profile or skills becomes a pending change request instead of
+  writing directly. Administrator/Director/HR are exempt (editing their
+  own record still writes immediately, same as before) since they're the
+  ones who'd be approving it anyway.
 - ~~Main Lead / Operations / Executive approving leave for their scope~~
   *(built)* — Leave Management reuses this same visibility model for the
   approvals queue (`getVisibleEmployeeIds()` in `lib/permissions.mjs`, used
@@ -225,12 +228,57 @@ need shows up.
       by a role-tier hierarchy (Employee < Team Lead < Main Lead < HR <
       Finance < Director < Administrator — each role sees its own tier and
       everything below); upload restricted to Administrator/HR/Director.
-      Both are Drive-link + metadata only, same as the rest of the app's
-      Drive integration — no in-app file upload/storage was built.
       `company_documents` creates itself defensively (`CREATE TABLE IF NOT
       EXISTS`) the first time it's queried, so — unlike the org_units
       sort_order column — there's no separate migration URL to remember to
       visit.
+- [x] Real Drive upload (`lib/drive-client.mjs`, `lib/multipart.mjs`) —
+      added after the initial Documents build, once it became clear
+      employees uploading their own personal documents needed more than a
+      paste-a-link box. Picking a file in the app uploads it straight into
+      an auto-created Drive folder structure inside a Shared Drive (see
+      `SETUP.md` step 5 for the one-time Shared Drive + service-account
+      sharing setup): `Employees/<employee_id> - <nickname or full
+      name>/` for personal documents, `Company/<permission tier>/` for
+      company documents. Folders are found-or-created on demand, nothing
+      needs pre-making by hand. Pasting a link still works as a fallback
+      (per Adam's explicit "keep both") — e.g. for a file that already
+      lives somewhere else in Drive and shouldn't be duplicated. New
+      dependency: `busboy` (parses the multipart upload body — the one
+      place in this codebase that uses a small library instead of raw
+      fetch, since hand-rolling multipart boundary parsing is genuinely
+      easy to get subtly wrong). New env var: `GOOGLE_DRIVE_ID`.
+- [x] Design Discipline — a fixed three-checkbox widget (Architecture/
+      Landscape/Interior, each revealing a 0–5 level dropdown once
+      checked) on the Employee Card, shown first, above the generic skills
+      categories (`DesignDisciplinePanel` in `src/pages/EmployeeCard.jsx`).
+      Backed by the same `skills` table as everything else — `'Design
+      Discipline'` is a real `category` value (`lib/skills.mjs`), just one
+      the generic "Add skill" form deliberately excludes so it can only
+      ever hold exactly those three items, never stray free-text entries.
+- [x] First-login setup + self-service change requests — a real
+      per-person login (anyone other than the master-admin bootstrap) is
+      forced through a one-time onboarding screen (`src/pages/Setup.jsx`)
+      before they can reach the rest of the app: fill in contact/personal
+      fields and skills/Design Discipline, then "Finish setup." That first
+      pass writes directly (`employees.profile_setup_completed_at` flips
+      from `NULL` to a timestamp — see `lib/employees.mjs`). After that,
+      any further self-edit to those same fields — via "Edit full profile"
+      (`EmployeeForm.jsx`) or the Employee Card's skills widgets
+      (`EmployeeCard.jsx`) — no longer applies immediately. It's recorded
+      as a `Pending` row in the new `change_requests` table
+      (`lib/change-requests.mjs`) instead, shows up as "pending HR
+      approval" inline wherever it was submitted from, and only takes
+      effect once approved from the new "Change requests" nav tab
+      (`src/pages/ChangeRequests.jsx`, Administrator/HR/Director only —
+      matches `FULL_VISIBILITY_ROLES`, same set that's exempt from ever
+      needing to submit a request for their own record). Covers exactly
+      `SELF_SERVICE_FIELDS` (contact/personal info — nickname, photo,
+      phone, address, emergency contact, nationality, DOB, religion,
+      office location) plus skill add/update/delete; everything
+      employment- or compensation-related (salary, role, department, KITAS/
+      passport/contract dates, etc.) stays HR/Admin-only as before,
+      unaffected by any of this.
 - [ ] Phase 2 remainder — Notifications (KITAS/passport/contract/probation
       expiry) + Disciplinary Records still outstanding; Documents (above)
       is done.
