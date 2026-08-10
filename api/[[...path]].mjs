@@ -30,6 +30,7 @@ import { handleOrgCleanup } from '../lib/org-cleanup.mjs';
 import { handleAccounts } from '../lib/accounts.mjs';
 import { handleLeaveBalances, handleLeaveRequests } from '../lib/leave.mjs';
 import { handlePersonalDocuments, handleCompanyDocuments } from '../lib/documents.mjs';
+import { handleChangeRequests } from '../lib/change-requests.mjs';
 
 export const config = {
   api: { bodyParser: false },
@@ -99,6 +100,14 @@ const routes = {
   // they're queried, so no separate migration visit is needed.
   documents: requireAuth(handlePersonalDocuments),
   'company-documents': requireAuth(handleCompanyDocuments),
+
+  // Phase 3 — self-service change requests (first-login setup gate +
+  // permanent HR-approval workflow for further self-edits to profile/
+  // skills data). requireAuth, not requireRole — handleChangeRequests
+  // itself checks FULL_VISIBILITY_ROLES for the review queue (GET
+  // ?scope=queue) and the approve/reject PATCH, and checks "is this your
+  // own record" for the plain GET ?employeeId=. See lib/change-requests.mjs.
+  'change-requests': requireAuth(handleChangeRequests),
 };
 
 async function readRawBody(req) {
