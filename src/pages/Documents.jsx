@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { useT } from '../lib/i18n.jsx';
 
 // Matches lib/documents.mjs exactly — kept as plain arrays here (UI-only
 // convenience, same pattern as Leave.jsx's LEAVE_TYPES); the actual
@@ -25,20 +26,18 @@ const COMPANY_UPLOAD_ROLES = ['Administrator', 'HR', 'Director'];
 const ROLE_RANK = ['Employee', 'Team Lead', 'Main Lead', 'HR', 'Finance', 'Director', 'Administrator'];
 
 export default function Documents({ session }) {
+  const t = useT();
   const canSeeEveryonesPersonal = DOC_FULL_VISIBILITY_ROLES.includes(session?.role);
   const canUploadCompany = COMPANY_UPLOAD_ROLES.includes(session?.role);
 
   return (
     <div>
-      <h2>Documents</h2>
+      <h2>{t('documents.title')}</h2>
 
       {session?.employee_id ? (
         <MyDocuments employeeId={session.employee_id} />
       ) : (
-        <p style={styles.hint}>
-          This login isn't linked to an employee record, so there's no personal document list to show here — company
-          documents below still work.
-        </p>
+        <p style={styles.hint}>{t('documents.noRecordHint')}</p>
       )}
 
       {canSeeEveryonesPersonal && <EmployeeDocuments role={session?.role} />}
@@ -51,15 +50,17 @@ export default function Documents({ session }) {
 // ─── Personal documents ────────────────────────────────────────────────
 
 function MyDocuments({ employeeId }) {
+  const t = useT();
   return (
     <div style={styles.section}>
-      <h3>My documents</h3>
+      <h3>{t('documents.myDocuments')}</h3>
       <DocumentsPanel employeeId={employeeId} />
     </div>
   );
 }
 
 function EmployeeDocuments({ role }) {
+  const t = useT();
   const [employees, setEmployees] = useState([]);
   const [employeeId, setEmployeeId] = useState('');
 
@@ -79,10 +80,10 @@ function EmployeeDocuments({ role }) {
 
   return (
     <div style={styles.section}>
-      <h3>Employee documents</h3>
-      <p style={styles.hint}>Pick anyone to view or add to their personal documents.</p>
+      <h3>{t('documents.employeeDocuments')}</h3>
+      <p style={styles.hint}>{t('documents.pickAnyoneHint')}</p>
       <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} style={styles.input}>
-        <option value="">— select employee —</option>
+        <option value="">{t('documents.selectEmployeeOption')}</option>
         {pickable.map((emp) => (
           <option key={emp.employee_id} value={emp.employee_id}>
             {emp.nickname || emp.full_name} ({emp.employee_id})
@@ -98,6 +99,7 @@ function EmployeeDocuments({ role }) {
 // just pointed at a different employee_id. Renders nothing until an
 // employee is actually chosen (EmployeeDocuments starts with none picked).
 function DocumentsPanel({ employeeId }) {
+  const t = useT();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -109,7 +111,7 @@ function DocumentsPanel({ employeeId }) {
     api
       .documents(employeeId)
       .then((data) => setDocuments(data.documents || []))
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }
 
@@ -118,17 +120,12 @@ function DocumentsPanel({ employeeId }) {
   }, [employeeId]);
 
   async function handleDelete(id) {
-    if (
-      !window.confirm(
-        'Delete this document record? This only removes it from the dashboard — the file itself, if it lives in Drive, is untouched.'
-      )
-    )
-      return;
+    if (!window.confirm(t('documents.deleteConfirm'))) return;
     try {
       await api.deleteDocument(id);
       load();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     }
   }
 
@@ -136,17 +133,17 @@ function DocumentsPanel({ employeeId }) {
 
   return (
     <div style={{ marginTop: 10 }}>
-      {loading && <p>Loading…</p>}
+      {loading && <p>{t('common.loading')}</p>}
       {error && <p style={styles.error}>{error}</p>}
 
       {!loading && (
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>Type</th>
-              <th style={styles.th}>Link</th>
-              <th style={styles.th}>Expiry</th>
-              <th style={styles.th}>Notes</th>
+              <th style={styles.th}>{t('documents.type')}</th>
+              <th style={styles.th}>{t('documents.link')}</th>
+              <th style={styles.th}>{t('documents.expiry')}</th>
+              <th style={styles.th}>{t('common.notes')}</th>
               <th style={styles.th}></th>
             </tr>
           </thead>
@@ -157,7 +154,7 @@ function DocumentsPanel({ employeeId }) {
                 <td style={styles.td}>
                   {d.drive_link ? (
                     <a href={d.drive_link} target="_blank" rel="noreferrer">
-                      Open
+                      {t('documents.open')}
                     </a>
                   ) : (
                     '—'
@@ -167,7 +164,7 @@ function DocumentsPanel({ employeeId }) {
                 <td style={styles.td}>{d.notes}</td>
                 <td style={styles.td}>
                   <button onClick={() => handleDelete(d.id)} style={styles.rowButton}>
-                    Delete
+                    {t('common.delete')}
                   </button>
                 </td>
               </tr>
@@ -175,7 +172,7 @@ function DocumentsPanel({ employeeId }) {
             {documents.length === 0 && (
               <tr>
                 <td style={styles.td} colSpan={5}>
-                  No documents yet.
+                  {t('documents.noDocuments')}
                 </td>
               </tr>
             )}
@@ -189,6 +186,7 @@ function DocumentsPanel({ employeeId }) {
 }
 
 function AddDocumentForm({ employeeId, onAdded }) {
+  const t = useT();
   const [documentType, setDocumentType] = useState(DOCUMENT_TYPES[0]);
   const [file, setFile] = useState(null);
   const [driveLink, setDriveLink] = useState('');
@@ -225,7 +223,7 @@ function AddDocumentForm({ employeeId, onAdded }) {
       setNotes('');
       onAdded();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -234,16 +232,16 @@ function AddDocumentForm({ employeeId, onAdded }) {
   return (
     <form onSubmit={handleSubmit} style={{ ...styles.inlineForm, marginTop: 10 }}>
       <select value={documentType} onChange={(e) => setDocumentType(e.target.value)} style={styles.input}>
-        {DOCUMENT_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {t}
+        {DOCUMENT_TYPES.map((dt) => (
+          <option key={dt} value={dt}>
+            {dt}
           </option>
         ))}
       </select>
       <input type="file" onChange={(e) => setFile(e.target.files[0] || null)} style={styles.input} />
-      <span style={styles.orHint}>or</span>
+      <span style={styles.orHint}>{t('documents.orLinkHint')}</span>
       <input
-        placeholder="Paste a Google Drive link instead"
+        placeholder={t('documents.pasteLinkPlaceholder')}
         value={driveLink}
         onChange={(e) => setDriveLink(e.target.value)}
         disabled={!!file}
@@ -253,17 +251,17 @@ function AddDocumentForm({ employeeId, onAdded }) {
         type="date"
         value={expiryDate}
         onChange={(e) => setExpiryDate(e.target.value)}
-        title="Expiry date (optional)"
+        title={`${t('documents.expiry')} (${t('common.optional')})`}
         style={styles.input}
       />
       <input
-        placeholder="Notes (optional)"
+        placeholder={t('common.notesOptional')}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         style={{ ...styles.input, flex: 1 }}
       />
       <button type="submit" disabled={saving} style={styles.addButton}>
-        {saving ? 'Adding…' : 'Add document'}
+        {saving ? t('common.adding') : t('documents.addDocument')}
       </button>
       {error && <p style={styles.error}>{error}</p>}
     </form>
@@ -273,6 +271,7 @@ function AddDocumentForm({ employeeId, onAdded }) {
 // ─── Company documents ─────────────────────────────────────────────────
 
 function CompanyDocuments({ canUpload }) {
+  const t = useT();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -283,7 +282,7 @@ function CompanyDocuments({ canUpload }) {
     api
       .companyDocuments()
       .then((data) => setDocuments(data.documents || []))
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }
 
@@ -292,12 +291,12 @@ function CompanyDocuments({ canUpload }) {
   }, []);
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this company document?')) return;
+    if (!window.confirm(t('documents.deleteCompanyConfirm'))) return;
     try {
       await api.deleteCompanyDocument(id);
       load();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     }
   }
 
@@ -309,11 +308,14 @@ function CompanyDocuments({ canUpload }) {
 
   return (
     <div style={styles.section}>
-      <h3>Company documents</h3>
-      {loading && <p>Loading…</p>}
+      <h3>{t('documents.companyDocuments')}</h3>
+      {loading && <p>{t('common.loading')}</p>}
       {error && <p style={styles.error}>{error}</p>}
       {!loading && folders.length === 0 && (
-        <p style={styles.hint}>Nothing here yet{canUpload ? ' — add the first one below.' : '.'}</p>
+        <p style={styles.hint}>
+          {t('documents.nothingHereYet')}
+          {canUpload ? t('documents.addFirstOneHint') : '.'}
+        </p>
       )}
 
       {!loading &&
@@ -323,10 +325,10 @@ function CompanyDocuments({ canUpload }) {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>Title</th>
-                  <th style={styles.th}>Minimum access</th>
-                  <th style={styles.th}>Link</th>
-                  <th style={styles.th}>Notes</th>
+                  <th style={styles.th}>{t('documents.title_')}</th>
+                  <th style={styles.th}>{t('documents.minimumAccess')}</th>
+                  <th style={styles.th}>{t('documents.link')}</th>
+                  <th style={styles.th}>{t('common.notes')}</th>
                   {canUpload && <th style={styles.th}></th>}
                 </tr>
               </thead>
@@ -338,7 +340,7 @@ function CompanyDocuments({ canUpload }) {
                     <td style={styles.td}>
                       {d.drive_link ? (
                         <a href={d.drive_link} target="_blank" rel="noreferrer">
-                          Open
+                          {t('documents.open')}
                         </a>
                       ) : (
                         '—'
@@ -348,7 +350,7 @@ function CompanyDocuments({ canUpload }) {
                     {canUpload && (
                       <td style={styles.td}>
                         <button onClick={() => handleDelete(d.id)} style={styles.rowButton}>
-                          Delete
+                          {t('common.delete')}
                         </button>
                       </td>
                     )}
@@ -365,6 +367,7 @@ function CompanyDocuments({ canUpload }) {
 }
 
 function AddCompanyDocumentForm({ onAdded }) {
+  const t = useT();
   const [accessRole, setAccessRole] = useState('Employee');
   const [title, setTitle] = useState('');
   const [file, setFile] = useState(null);
@@ -395,7 +398,7 @@ function AddCompanyDocumentForm({ onAdded }) {
       setNotes('');
       onAdded();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -403,12 +406,7 @@ function AddCompanyDocumentForm({ onAdded }) {
 
   return (
     <div style={{ marginTop: 12 }}>
-      <p style={styles.hint}>
-        Documents are grouped by access tier — picking "Team Lead" both controls who can see it (Team Lead and
-        everyone above: Main Lead, HR, Finance, Director, Administrator — plain Employees won't) and which folder it
-        lands in. Uploading a file puts it in that tier's auto-created Drive folder (Company/{accessRole}); pasting a
-        link instead leaves it wherever it already lives.
-      </p>
+      <p style={styles.hint}>{t('documents.accessTierHint', { role: accessRole })}</p>
       <form onSubmit={handleSubmit} style={styles.inlineForm}>
         <select value={accessRole} onChange={(e) => setAccessRole(e.target.value)} style={styles.input}>
           {ROLE_RANK.map((r) => (
@@ -418,28 +416,28 @@ function AddCompanyDocumentForm({ onAdded }) {
           ))}
         </select>
         <input
-          placeholder="Title"
+          placeholder={t('documents.titlePlaceholder')}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           style={{ ...styles.input, flex: 1 }}
         />
         <input type="file" onChange={(e) => setFile(e.target.files[0] || null)} style={styles.input} />
-        <span style={styles.orHint}>or</span>
+        <span style={styles.orHint}>{t('documents.orLinkHint')}</span>
         <input
-          placeholder="Paste a Google Drive link instead"
+          placeholder={t('documents.pasteLinkPlaceholder')}
           value={driveLink}
           onChange={(e) => setDriveLink(e.target.value)}
           disabled={!!file}
           style={{ ...styles.input, flex: 2 }}
         />
         <input
-          placeholder="Notes (optional)"
+          placeholder={t('common.notesOptional')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           style={{ ...styles.input, flex: 1 }}
         />
         <button type="submit" disabled={saving} style={styles.addButton}>
-          {saving ? 'Adding…' : 'Add document'}
+          {saving ? t('common.adding') : t('documents.addDocument')}
         </button>
       </form>
       {error && <p style={styles.error}>{error}</p>}

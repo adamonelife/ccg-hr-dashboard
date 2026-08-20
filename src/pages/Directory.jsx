@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { useT } from '../lib/i18n.jsx';
 
 // Mirrors lib/permissions.mjs's STAFF_MANAGEMENT_ROLES/
 // UNRESTRICTED_VISIBILITY_ROLES/RESTRICTED_TARGET_ROLES — kept as plain
@@ -21,6 +22,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const t = useT();
 
   const showSensitive = CAN_SEE_CARD_AND_SENSITIVE_COLUMNS.includes(role);
   const showAdd = CAN_ADD_EMPLOYEE.includes(role);
@@ -36,7 +38,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
     api
       .listEmployees()
       .then((data) => setEmployees(data.employees || []))
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }
 
@@ -55,33 +57,33 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
     <div>
       <div style={styles.toolbar}>
         <input
-          placeholder="Search name, ID, department, team, title…"
+          placeholder={t('directory.searchPlaceholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={styles.search}
         />
         {showAdd && (
           <button onClick={onAdd} style={styles.addButton}>
-            + Add employee
+            {t('directory.addEmployee')}
           </button>
         )}
       </div>
 
-      {loading && <p>Loading…</p>}
+      {loading && <p>{t('common.loading')}</p>}
       {error && <p style={styles.error}>{error}</p>}
 
       {!loading && !error && (
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>Name</th>
-              <th style={styles.th}>Nickname</th>
-              {showSensitive && <th style={styles.th}>Employee ID</th>}
-              <th style={styles.th}>Job title</th>
-              <th style={styles.th}>Department</th>
-              <th style={styles.th}>Team</th>
-              <th style={styles.th}>Status</th>
-              {showSensitive && <th style={styles.th}>Start date</th>}
+              <th style={styles.th}>{t('directory.name')}</th>
+              <th style={styles.th}>{t('directory.nickname')}</th>
+              {showSensitive && <th style={styles.th}>{t('directory.employeeId')}</th>}
+              <th style={styles.th}>{t('directory.jobTitle')}</th>
+              <th style={styles.th}>{t('directory.department')}</th>
+              <th style={styles.th}>{t('directory.team')}</th>
+              <th style={styles.th}>{t('directory.status')}</th>
+              {showSensitive && <th style={styles.th}>{t('directory.startDate')}</th>}
               {showSensitive && <th style={styles.th}></th>}
             </tr>
           </thead>
@@ -116,7 +118,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
                           }}
                           style={styles.cardButton}
                         >
-                          View card
+                          {t('directory.viewCard')}
                         </button>
                       )}
                     </td>
@@ -127,7 +129,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
             {filtered.length === 0 && (
               <tr>
                 <td style={styles.td} colSpan={columnCount}>
-                  No employees yet.
+                  {t('directory.noEmployees')}
                 </td>
               </tr>
             )}

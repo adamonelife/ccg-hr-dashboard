@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { useT } from '../lib/i18n.jsx';
 
 // HR review queue for self-service change requests — see
 // lib/change-requests.mjs. Administrator/HR/Director only (App.jsx hides
@@ -8,14 +9,20 @@ import { api } from '../lib/api.js';
 // no "edit before approving" here on purpose, same as Leave's approvals:
 // if what was requested isn't right, reject it with a note and have them
 // resubmit, rather than silently changing what they asked for.
-const TYPE_LABELS = {
-  profile: 'Profile update',
-  skill_add: 'New skill/entry',
-  skill_update: 'Skill/entry update',
-  skill_delete: 'Skill/entry removal',
+//
+// TYPE_KEYS maps request_type -> the `changeRequests.type.*` dictionary
+// key; DIFF_KEY_NS looks up profile field names via the same
+// `employeeForm.field.*` keys EmployeeForm.jsx uses, since request payload
+// keys are the raw DB column names.
+const TYPE_KEYS = {
+  profile: 'changeRequests.type.profile',
+  skill_add: 'changeRequests.type.skill_add',
+  skill_update: 'changeRequests.type.skill_update',
+  skill_delete: 'changeRequests.type.skill_delete',
 };
 
 export default function ChangeRequests() {
+  const t = useT();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,22 +37,19 @@ export default function ChangeRequests() {
     api
       .changeRequestQueue()
       .then((data) => setRequests(data.requests || []))
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }
 
   return (
     <div>
-      <h2 style={styles.title}>Change requests</h2>
-      <p style={styles.intro}>
-        Self-service edits to profile details and skills, submitted after each employee's own first-login setup —
-        nothing here takes effect until approved.
-      </p>
+      <h2 style={styles.title}>{t('changeRequests.title')}</h2>
+      <p style={styles.intro}>{t('changeRequests.intro')}</p>
 
-      {loading && <p>Loading…</p>}
+      {loading && <p>{t('common.loading')}</p>}
       {error && <p style={styles.error}>{error}</p>}
 
-      {!loading && !error && requests.length === 0 && <p style={styles.empty}>Nothing pending.</p>}
+      {!loading && !error && requests.length === 0 && <p style={styles.empty}>{t('changeRequests.nothingPending')}</p>}
 
       {!loading &&
         requests.map((r) => <RequestCard key={r.id} request={r} onDecided={load} />)}
@@ -54,6 +58,7 @@ export default function ChangeRequests() {
 }
 
 function RequestCard({ request, onDecided }) {
+  const t = useT();
   const [notes, setNotes] = useState('');
   const [deciding, setDeciding] = useState(false);
   const [error, setError] = useState('');
@@ -65,7 +70,7 @@ function RequestCard({ request, onDecided }) {
       await api.decideChangeRequest(request.id, status, notes);
       onDecided();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
       setDeciding(false);
     }
   }
@@ -77,26 +82,28 @@ function RequestCard({ request, onDecided }) {
           <strong>{request.nickname || request.full_name}</strong>
           <span style={styles.meta}> · {request.employee_id}</span>
         </div>
-        <span style={styles.typeBadge}>{TYPE_LABELS[request.request_type] || request.request_type}</span>
+        <span style={styles.typeBadge}>
+          {TYPE_KEYS[request.request_type] ? t(TYPE_KEYS[request.request_type]) : request.request_type}
+        </span>
       </div>
-      <div style={styles.meta}>Requested {request.requested_at}</div>
+      <div style={styles.meta}>{t('changeRequests.requestedAt', { date: request.requested_at })}</div>
 
-      <Diff request={request} />
+      <Diff request={request} t={t} />
 
       {error && <p style={styles.error}>{error}</p>}
 
       <div style={styles.actions}>
         <input
-          placeholder="Note (optional)"
+          placeholder={t('changeRequests.notePlaceholder')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           style={styles.notesInput}
         />
         <button onClick={() => decide('Approved')} disabled={deciding} style={styles.approveButton}>
-          {deciding ? 'Working…' : 'Approve'}
+          {deciding ? t('changeRequests.working') : t('changeRequests.approve')}
         </button>
         <button onClick={() => decide('Rejected')} disabled={deciding} style={styles.rejectButton}>
-          Reject
+          {t('changeRequests.reject')}
         </button>
       </div>
     </div>
@@ -107,7 +114,7 @@ function RequestCard({ request, onDecided }) {
 // fields that actually changed). skill_add carries the new entry outright
 // (nothing to diff against). skill_update carries {old, new} full entry
 // snapshots. skill_delete carries {old} only.
-function Diff({ request }) {
+function Diff({ request, t }) {
   const { payload, request_type } = request;
 
   if (request_type === 'profile' || request_type === 'skill_update') {
@@ -119,10 +126,10 @@ function Diff({ request }) {
         <tbody>
           {keys.map((k) => (
             <tr key={k}>
-              <td style={styles.diffKey}>{k}</td>
-              <td style={styles.diffOld}>{formatVal(oldVals[k])}</td>
+              <td style={styles.diffKey}>{request_type === 'profile' ? t(`employeeForm.field.${k}`) : k}</td>
+              <td style={styles.diffOld}>{formatVal(oldVals[k], t)}</td>
               <td style={styles.diffArrow}>→</td>
-              <td style={styles.diffNew}>{formatVal(newVals[k])}</td>
+              <td style={styles.diffNew}>{formatVal(newVals[k], t)}</td>
             </tr>
           ))}
         </tbody>
@@ -134,7 +141,7 @@ function Diff({ request }) {
     return (
       <div style={styles.diffSimple}>
         <strong>{payload.category}</strong>: {payload.item}
-        {payload.level && ` — level ${payload.level}`}
+        {payload.level && t('changeRequests.levelSuffix', { level: payload.level })}
         {payload.notes && <span style={styles.meta}> ({payload.notes})</span>}
       </div>
     );
@@ -144,8 +151,10 @@ function Diff({ request }) {
     const old = payload.old || {};
     return (
       <div style={styles.diffSimple}>
-        Remove <strong>{old.category}</strong>: {old.item}
-        {old.level && ` — level ${old.level}`}
+        {t('changeRequests.remove', {
+          category: old.category,
+          item: `${old.item}${old.level ? t('changeRequests.levelSuffix', { level: old.level }) : ''}`,
+        })}
       </div>
     );
   }
@@ -153,8 +162,8 @@ function Diff({ request }) {
   return null;
 }
 
-function formatVal(v) {
-  if (v === null || v === undefined || v === '') return <span style={{ color: '#bbb' }}>(blank)</span>;
+function formatVal(v, t) {
+  if (v === null || v === undefined || v === '') return <span style={{ color: '#bbb' }}>{t('changeRequests.blank')}</span>;
   return String(v);
 }
 

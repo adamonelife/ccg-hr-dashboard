@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { useT } from '../lib/i18n.jsx';
 
 // Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES and
 // lib/employees.mjs's SELF_SERVICE_FIELDS — UI-only copies (the real
@@ -22,99 +23,101 @@ const SELF_SERVICE_FIELDS = [
   'office_location',
 ];
 
+// `titleKey`/field `labelKey`s look up translations at render time (see
+// `t(`employeeForm.section.${titleKey}`)` / `t(`employeeForm.field.${f.key}`)`
+// below) — this array stays module-scope (used by EMPTY below, outside any
+// component) so it can't call hooks directly; only the field `key` and
+// `religion`'s option *values* stay untranslated (they're DB values, not
+// display text — same reasoning as DESIGN_DISCIPLINE_CATEGORY in
+// EmployeeCard.jsx).
 const SECTIONS = [
   {
-    title: 'Identity',
+    titleKey: 'identity',
     fields: [
-      { key: 'employee_id', label: 'Employee ID', required: true, lockOnEdit: true },
-      { key: 'full_name', label: 'Full name', required: true },
-      { key: 'nickname', label: 'Nickname (for disambiguation)' },
-      { key: 'photo_url', label: 'Photo URL' },
-      { key: 'email', label: 'Email' },
-      { key: 'phone', label: 'Phone' },
+      { key: 'employee_id', required: true, lockOnEdit: true },
+      { key: 'full_name', required: true },
+      { key: 'nickname' },
+      { key: 'photo_url' },
+      { key: 'email' },
+      { key: 'phone' },
     ],
   },
   {
-    title: 'Personal',
+    titleKey: 'personal',
     fields: [
-      { key: 'date_of_birth', label: 'Date of birth', type: 'date' },
-      { key: 'address', label: 'Address' },
-      { key: 'nationality', label: 'Nationality' },
+      { key: 'date_of_birth', type: 'date' },
+      { key: 'address' },
+      { key: 'nationality' },
       {
         key: 'religion',
-        label: 'Religion (for THR timing)',
         type: 'select',
         options: ['Islam', 'Kristen', 'Katholik', 'Hindu', 'Buddha', 'Konghucu', 'NA'],
       },
-      { key: 'emergency_contact_name', label: 'Emergency contact name' },
-      { key: 'emergency_contact_phone', label: 'Emergency contact phone' },
-      { key: 'emergency_contact_relationship', label: 'Emergency contact relationship' },
+      { key: 'emergency_contact_name' },
+      { key: 'emergency_contact_phone' },
+      { key: 'emergency_contact_relationship' },
     ],
   },
   {
-    title: 'Employment status',
+    titleKey: 'employmentStatus',
     fields: [
       {
         key: 'employment_status',
-        label: 'Employment status',
         type: 'select',
         options: ['Active', 'On Leave', 'Notice Period', 'Terminated', 'Resigned'],
       },
-      { key: 'start_date', label: 'Start date', type: 'date' },
-      { key: 'end_date', label: 'End date', type: 'date' },
+      { key: 'start_date', type: 'date' },
+      { key: 'end_date', type: 'date' },
     ],
   },
   {
-    title: 'Organisation',
+    titleKey: 'organisation',
     fields: [
-      { key: 'company', label: 'Company' },
-      { key: 'department', label: 'Department', type: 'select', dynamic: 'departments' },
-      { key: 'job_title', label: 'Job title' },
-      { key: 'team', label: 'Team', type: 'select', dynamic: 'teams' },
-      { key: 'manager_id', label: 'Manager (employee ID) — blank if none (e.g. Executive)' },
-      { key: 'office_location', label: 'Office location' },
+      { key: 'company' },
+      { key: 'department', type: 'select', dynamic: 'departments' },
+      { key: 'job_title' },
+      { key: 'team', type: 'select', dynamic: 'teams' },
+      { key: 'manager_id' },
+      { key: 'office_location' },
       {
         key: 'permission_role',
-        label: 'Permission role (access control, not job title)',
         type: 'select',
         options: ['Employee', 'Team Lead', 'Main Lead', 'HR', 'Finance', 'Director', 'Administrator'],
       },
     ],
   },
   {
-    title: 'Employment details',
+    titleKey: 'employmentDetails',
     fields: [
       {
         key: 'employment_type',
-        label: 'Employment type',
         type: 'select',
         options: ['Full-time', 'Part-time', 'Contractor', 'Freelance', 'Intern'],
       },
       {
         key: 'contract_type',
-        label: 'Contract type',
         type: 'select',
         options: ['PKWT', 'PKWTT'],
       },
-      { key: 'contract_start', label: 'Contract start', type: 'date' },
-      { key: 'contract_end', label: 'Contract end', type: 'date' },
-      { key: 'probation_end_date', label: 'Probation end date', type: 'date' },
+      { key: 'contract_start', type: 'date' },
+      { key: 'contract_end', type: 'date' },
+      { key: 'probation_end_date', type: 'date' },
     ],
   },
   {
-    title: 'Compensation',
+    titleKey: 'compensation',
     fields: [
-      { key: 'current_salary', label: 'Current salary', type: 'number' },
-      { key: 'salary_currency', label: 'Currency', type: 'select', options: ['IDR', 'USD'] },
-      { key: 'bonus_eligible', label: 'Bonus eligible', type: 'checkbox' },
+      { key: 'current_salary', type: 'number' },
+      { key: 'salary_currency', type: 'select', options: ['IDR', 'USD'] },
+      { key: 'bonus_eligible', type: 'checkbox' },
     ],
   },
   {
-    title: 'Compliance',
+    titleKey: 'compliance',
     fields: [
-      { key: 'kitas_expiry', label: 'KITAS expiry', type: 'date' },
-      { key: 'passport_expiry', label: 'Passport expiry', type: 'date' },
-      { key: 'work_permit_expiry', label: 'Work permit expiry', type: 'date' },
+      { key: 'kitas_expiry', type: 'date' },
+      { key: 'passport_expiry', type: 'date' },
+      { key: 'work_permit_expiry', type: 'date' },
     ],
   },
 ];
@@ -126,6 +129,7 @@ const EMPTY = SECTIONS.flatMap((s) => s.fields).reduce(
 
 export default function EmployeeForm({ employeeId, session, onSaved, onCancel }) {
   const isEdit = Boolean(employeeId);
+  const t = useT();
   // Self-editing your own record without being one of the trusted roles
   // means every field outside SELF_SERVICE_FIELDS is read-only, and saving
   // submits a change request instead of writing immediately — see
@@ -162,7 +166,7 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
     api
       .getEmployee(employeeId)
       .then((data) => setForm({ ...EMPTY, ...data.employee }))
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }, [employeeId]);
 
@@ -212,7 +216,7 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
           : form;
         const data = await api.updateEmployee(payload);
         if (data.submitted) {
-          setSubmittedMsg('Submitted — your change is pending HR approval.');
+          setSubmittedMsg(t('employeeForm.submittedMsg'));
           loadPendingRequests();
           setSaving(false);
           return;
@@ -222,20 +226,14 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
       }
       onSaved();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (
-      !window.confirm(
-        `Permanently delete ${form.full_name || employeeId}? This also deletes their salary history, ` +
-          `promotion history, and skills — there's no undo. If they've actually left, use "Employment status" ` +
-          `→ Terminated/Resigned instead to keep their record.`
-      )
-    ) {
+    if (!window.confirm(t('employeeForm.deleteConfirm', { name: form.full_name || employeeId }))) {
       return;
     }
     setDeleting(true);
@@ -244,36 +242,30 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
       await api.deleteEmployee(employeeId);
       onCancel();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
       setDeleting(false);
     }
   }
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <p>{t('common.loading')}</p>;
 
   return (
     <div>
       <button onClick={onCancel} style={styles.back}>
-        ← Back to directory
+        {t('employeeForm.backToDirectory')}
       </button>
-      <h2>{isEdit ? form.full_name || 'Edit employee' : 'Add employee'}</h2>
+      <h2>{isEdit ? form.full_name || t('employeeForm.editEmployee') : t('employeeForm.addEmployee')}</h2>
       {isEdit && !selfServiceOnly && (
         <button onClick={handleDelete} disabled={deleting} style={styles.deleteButton}>
-          {deleting ? 'Deleting…' : 'Delete employee'}
+          {deleting ? t('employeeForm.deleting') : t('employeeForm.deleteEmployee')}
         </button>
       )}
 
-      {selfServiceOnly && (
-        <p style={styles.note}>
-          Contact/personal fields only — anything else here needs HR/Admin to change. Saving a change sends it
-          to HR for approval rather than applying immediately.
-        </p>
-      )}
+      {selfServiceOnly && <p style={styles.note}>{t('employeeForm.selfServiceNote')}</p>}
 
       {selfServiceOnly && pendingRequests.length > 0 && (
         <div style={styles.pendingBanner}>
-          You have {pendingRequests.length} change request{pendingRequests.length > 1 ? 's' : ''} awaiting HR
-          approval.
+          {t('employeeForm.pendingBanner', { count: pendingRequests.length })}
         </div>
       )}
 
@@ -281,8 +273,8 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
 
       <form onSubmit={handleSubmit}>
         {SECTIONS.map((section) => (
-          <fieldset key={section.title} style={styles.fieldset}>
-            <legend style={styles.legend}>{section.title}</legend>
+          <fieldset key={section.titleKey} style={styles.fieldset}>
+            <legend style={styles.legend}>{t(`employeeForm.section.${section.titleKey}`)}</legend>
             <div style={styles.grid}>
               {section.fields.map((f) => {
                 // Static options (f.options) or live ones pulled from
@@ -297,10 +289,11 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
                     ? [currentValue, ...baseOptions]
                     : baseOptions;
                 const locked = (isEdit && f.lockOnEdit) || (selfServiceOnly && !SELF_SERVICE_FIELDS.includes(f.key));
+                const label = t(`employeeForm.field.${f.key}`);
 
                 return (
                 <label key={f.key} style={styles.label}>
-                  {f.label}
+                  {label}
                   {f.required && ' *'}
                   {f.type === 'select' ? (
                     <select
@@ -345,35 +338,43 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
         {error && <p style={styles.error}>{error}</p>}
 
         <button type="submit" disabled={saving} style={styles.submit}>
-          {saving ? 'Saving…' : isEdit ? (selfServiceOnly ? 'Request change' : 'Save changes') : 'Create employee'}
+          {saving
+            ? t('common.saving')
+            : isEdit
+              ? selfServiceOnly
+                ? t('employeeForm.requestChange')
+                : t('employeeForm.saveChanges')
+              : t('employeeForm.createEmployee')}
         </button>
       </form>
 
       {isEdit && !selfServiceOnly && (
         <>
-          <AccountPanel employeeId={employeeId} defaultEmail={form.email} />
+          <AccountPanel employeeId={employeeId} defaultEmail={form.email} t={t} />
           <HistoryPanel
-            title="Salary history"
+            title={t('employeeForm.salaryHistory')}
             employeeId={employeeId}
             fetcher={api.salaryHistory}
             adder={api.addSalaryEntry}
+            t={t}
             columns={[
-              { key: 'effective_date', label: 'Effective date', type: 'date' },
-              { key: 'amount', label: 'Amount', type: 'number' },
-              { key: 'currency', label: 'Currency' },
-              { key: 'reason', label: 'Reason' },
+              { key: 'effective_date', label: t('employeeForm.effectiveDate'), type: 'date' },
+              { key: 'amount', label: t('employeeForm.amount'), type: 'number' },
+              { key: 'currency', label: t('employeeForm.currency') },
+              { key: 'reason', label: t('employeeForm.reason') },
             ]}
           />
           <HistoryPanel
-            title="Promotion history"
+            title={t('employeeForm.promotionHistory')}
             employeeId={employeeId}
             fetcher={api.promotionHistory}
             adder={api.addPromotionEntry}
+            t={t}
             columns={[
-              { key: 'date', label: 'Date', type: 'date' },
-              { key: 'previous_title', label: 'Previous title' },
-              { key: 'new_title', label: 'New title' },
-              { key: 'notes', label: 'Notes' },
+              { key: 'date', label: t('employeeForm.date'), type: 'date' },
+              { key: 'previous_title', label: t('employeeForm.previousTitle') },
+              { key: 'new_title', label: t('employeeForm.newTitle') },
+              { key: 'notes', label: t('common.notes') },
             ]}
           />
         </>
@@ -382,14 +383,19 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
   );
 }
 
-// Login account management (Phase 3). No email is sent automatically —
-// this generates a one-time setup link that you copy and share with the
-// person yourself (Slack, WhatsApp, whatever). Same action works to reset
-// a forgotten password later (a fresh link just lets them set a new one).
-function AccountPanel({ employeeId, defaultEmail }) {
+// Login account management (Phase 3). Generates a one-time setup link and
+// tries to email it straight to the address entered below via Gmail
+// (lib/accounts.mjs/lib/gmail-client.mjs — requires GMAIL_SEND_AS +
+// domain-wide delegation to be set up, see SETUP.md step 6). The link is
+// always shown too regardless of whether the email sent, so there's still
+// a manual fallback (Slack, WhatsApp, whatever) if delegation isn't set up
+// yet or the send fails for some reason. Same action works to reset a
+// forgotten password later (a fresh link/email just lets them set a new one).
+function AccountPanel({ employeeId, defaultEmail, t }) {
   const [account, setAccount] = useState(null);
   const [email, setEmail] = useState('');
   const [link, setLink] = useState('');
+  const [emailStatus, setEmailStatus] = useState(null); // { sent, error, to } | null
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -406,7 +412,7 @@ function AccountPanel({ employeeId, defaultEmail }) {
         setAccount(data.account);
         setEmail(data.account?.email || defaultEmail || '');
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }
 
@@ -416,12 +422,14 @@ function AccountPanel({ employeeId, defaultEmail }) {
     setSaving(true);
     setError('');
     setLink('');
+    setEmailStatus(null);
     try {
       const data = await api.createAccount(employeeId, email);
-      setLink(`${window.location.origin}/?setup=${data.setup_token}`);
+      setLink(data.setup_url || `${window.location.origin}/?setup=${data.setup_token}`);
+      setEmailStatus({ sent: data.email_sent, error: data.email_error, to: email });
       load();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -431,38 +439,50 @@ function AccountPanel({ employeeId, defaultEmail }) {
 
   return (
     <div style={styles.panel}>
-      <h3>Login account</h3>
+      <h3>{t('employeeForm.loginAccount')}</h3>
       {error && <p style={styles.error}>{error}</p>}
 
       {account && (
         <p style={{ fontSize: 13, color: '#555' }}>
           {account.email} —{' '}
           {account.has_password
-            ? `active${account.last_login_at ? `, last login ${new Date(account.last_login_at).toLocaleDateString()}` : ' (never logged in)'}`
+            ? `${t('employeeForm.accountActive')}${
+                account.last_login_at
+                  ? t('employeeForm.accountLastLogin', {
+                      date: new Date(account.last_login_at).toLocaleDateString(),
+                    })
+                  : t('employeeForm.accountNeverLoggedIn')
+              }`
             : account.setup_pending
-              ? 'setup link sent, not used yet'
-              : 'no password set'}
+              ? t('employeeForm.accountSetupPending')
+              : t('employeeForm.accountNoPassword')}
         </p>
       )}
 
       <form onSubmit={handleCreate} style={styles.inlineForm}>
         <input
           type="email"
-          placeholder="Email"
+          placeholder={t('employeeForm.emailPlaceholder')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           style={styles.inlineInput}
         />
         <button type="submit" disabled={saving} style={styles.addButton}>
-          {saving ? 'Generating…' : account ? 'Reset password / regenerate link' : 'Create login'}
+          {saving ? t('employeeForm.sendingLogin') : account ? t('employeeForm.resendLogin') : t('employeeForm.createLogin')}
         </button>
       </form>
 
+      {emailStatus && (
+        <p style={emailStatus.sent ? styles.emailSent : styles.emailFailed}>
+          {emailStatus.sent
+            ? t('employeeForm.emailSent', { email: emailStatus.to })
+            : t('employeeForm.emailFailed', { detail: emailStatus.error ? ` (${emailStatus.error})` : '' })}
+        </p>
+      )}
+
       {link && (
         <div style={{ marginTop: 8, fontSize: 13 }}>
-          <p style={{ margin: '0 0 4px 0', color: '#555' }}>
-            One-time link (expires in 7 days) — copy and send this to them directly:
-          </p>
+          <p style={{ margin: '0 0 4px 0', color: '#555' }}>{t('employeeForm.linkFallbackNote')}</p>
           <input
             readOnly
             value={link}
@@ -475,7 +495,7 @@ function AccountPanel({ employeeId, defaultEmail }) {
   );
 }
 
-function HistoryPanel({ title, employeeId, fetcher, adder, columns }) {
+function HistoryPanel({ title, employeeId, fetcher, adder, columns, t }) {
   const [rows, setRows] = useState([]);
   const [entry, setEntry] = useState({});
   const [error, setError] = useState('');
@@ -488,7 +508,7 @@ function HistoryPanel({ title, employeeId, fetcher, adder, columns }) {
   function load() {
     fetcher(employeeId)
       .then((data) => setRows(data.history || []))
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(t.err(e.message)));
   }
 
   async function handleAdd(e) {
@@ -500,7 +520,7 @@ function HistoryPanel({ title, employeeId, fetcher, adder, columns }) {
       setEntry({});
       load();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setAdding(false);
     }
@@ -533,7 +553,7 @@ function HistoryPanel({ title, employeeId, fetcher, adder, columns }) {
           {rows.length === 0 && (
             <tr>
               <td style={styles.td} colSpan={columns.length}>
-                No entries yet.
+                {t('employeeForm.noEntriesYet')}
               </td>
             </tr>
           )}
@@ -552,7 +572,7 @@ function HistoryPanel({ title, employeeId, fetcher, adder, columns }) {
           />
         ))}
         <button type="submit" disabled={adding} style={styles.addButton}>
-          {adding ? 'Adding…' : 'Add'}
+          {adding ? t('common.adding') : t('common.add')}
         </button>
       </form>
     </div>
@@ -605,6 +625,8 @@ const styles = {
     marginBottom: 12,
   },
   submittedMsg: { fontSize: 13, color: '#2a7', marginBottom: 12 },
+  emailSent: { fontSize: 13, color: '#2a7', margin: '8px 0 0 0' },
+  emailFailed: { fontSize: 13, color: '#a60', margin: '8px 0 0 0' },
   panel: { marginTop: 24, borderTop: '1px solid #eee', paddingTop: 16 },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 },
   th: { textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #ddd', color: '#555' },

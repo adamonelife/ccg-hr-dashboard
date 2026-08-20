@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { useT } from '../lib/i18n.jsx';
 
 // Keep in sync with the CHECK constraint on skills.level in db/schema.sql.
 const LEVELS = ['', '0', '1', '2', '3', '4', '5'];
@@ -9,6 +10,8 @@ const LEVELS = ['', '0', '1', '2', '3', '4', '5'];
 // excludes: that category has its own dedicated widget
 // (DesignDisciplinePanel, below) rather than going through the generic
 // "Add skill" form, so it never ends up with stray free-text entries.
+// Values stay in English (DB category strings) — display labels are
+// looked up via `employeeCard.category.${cat}` at render time.
 const CATEGORIES = [
   'Software Skill',
   'Technical Skill',
@@ -20,8 +23,16 @@ const CATEGORIES = [
   'Career Path',
 ];
 
+// Category value stays 'Design Discipline' in the database (skills.category
+// CHECK constraint, lib/skills.mjs) even though the widget now covers non-
+// creative disciplines too (Marketing/Sales/HR/Finance, added once it came
+// up that not everyone at CCG is design staff) — renaming the stored value
+// would mean a migration for zero user-visible benefit, since nothing
+// displays the raw category string anywhere. Only the on-screen heading
+// changed, from "Design Discipline" to "Discipline" (see
+// DesignDisciplinePanel's <h3> below).
 const DESIGN_DISCIPLINE_CATEGORY = 'Design Discipline';
-const DISCIPLINE_ITEMS = ['Architecture', 'Landscape', 'Interior'];
+const DISCIPLINE_ITEMS = ['Architecture', 'Landscape', 'Interior', 'Marketing', 'Sales', 'HR', 'Finance'];
 
 // Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES — see
 // EmployeeForm.jsx's copy of the same list for why this stays a plain UI-
@@ -40,6 +51,7 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pendingRequests, setPendingRequests] = useState([]);
+  const t = useT();
 
   // Once first-login setup is done, a self-editing, non-trusted employee's
   // skill/Design Discipline changes go through HR approval instead of
@@ -61,7 +73,7 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
         setEmployee(empData.employee);
         setSkills(skillData.skills || []);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
     if (selfServiceOnly) loadPendingRequests();
   }
@@ -75,7 +87,7 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
       });
   }
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <p>{t('common.loading')}</p>;
   if (error) return <p style={styles.error}>{error}</p>;
   if (!employee) return null;
 
@@ -87,7 +99,7 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
   return (
     <div>
       <button onClick={onBack} style={styles.back}>
-        ← Back to directory
+        {t('employeeCard.backToDirectory')}
       </button>
 
       <div style={styles.card}>
@@ -109,14 +121,13 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
             <div style={styles.meta}>{employee.employment_status}</div>
           </div>
           <button onClick={() => onEdit(employeeId)} style={styles.editButton}>
-            Edit full profile
+            {t('employeeCard.editFullProfile')}
           </button>
         </div>
 
         {selfServiceOnly && pendingRequests.length > 0 && (
           <div style={styles.pendingBanner}>
-            You have {pendingRequests.length} change request{pendingRequests.length > 1 ? 's' : ''} awaiting HR
-            approval.
+            {t('employeeCard.pendingBanner', { count: pendingRequests.length })}
           </div>
         )}
 
@@ -129,7 +140,7 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
 
         {CATEGORIES.map((cat) => (
           <div key={cat} style={styles.section}>
-            <h3 style={styles.sectionTitle}>{cat}</h3>
+            <h3 style={styles.sectionTitle}>{t(`employeeCard.category.${cat}`)}</h3>
             {byCategory[cat]?.length > 0 ? (
               <ul style={styles.list}>
                 {byCategory[cat].map((s) => (
@@ -137,7 +148,7 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
                 ))}
               </ul>
             ) : (
-              <p style={styles.empty}>None recorded</p>
+              <p style={styles.empty}>{t('employeeCard.none')}</p>
             )}
           </div>
         ))}
@@ -155,6 +166,7 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
 // (create/update/delete as needed) in one "Save", via the same
 // add/update/delete endpoints the rest of the card uses.
 export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServiceOnly }) {
+  const t = useT();
   const entries = skills.filter((s) => s.category === DESIGN_DISCIPLINE_CATEGORY);
   const byItem = Object.fromEntries(entries.map((e) => [e.item, e]));
 
@@ -200,11 +212,11 @@ export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServi
         })
       );
       if (results.some((r) => r?.submitted)) {
-        setSubmittedMsg('Submitted — pending HR approval.');
+        setSubmittedMsg(t('employeeCard.submitted'));
       }
       onChanged();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -212,8 +224,8 @@ export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServi
 
   return (
     <div style={styles.section}>
-      <h3 style={styles.sectionTitle}>Design Discipline</h3>
-      {selfServiceOnly && <p style={styles.note}>Changes here need HR approval once saved.</p>}
+      <h3 style={styles.sectionTitle}>{t('employeeCard.discipline')}</h3>
+      {selfServiceOnly && <p style={styles.note}>{t('employeeCard.disciplineNote')}</p>}
       <div style={styles.disciplineRow}>
         {DISCIPLINE_ITEMS.map((item) => (
           <label key={item} style={styles.disciplineLabel}>
@@ -231,7 +243,7 @@ export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServi
               >
                 {LEVELS.map((l) => (
                   <option key={l} value={l}>
-                    {l === '' ? 'Level (n/a)' : l}
+                    {l === '' ? t('employeeCard.levelNa') : l}
                   </option>
                 ))}
               </select>
@@ -239,7 +251,7 @@ export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServi
           </label>
         ))}
         <button onClick={handleSave} disabled={saving} style={styles.addButton}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
       {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
@@ -249,6 +261,7 @@ export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServi
 }
 
 export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
+  const t = useT();
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [item, setItem] = useState('');
   const [level, setLevel] = useState('');
@@ -269,11 +282,11 @@ export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
       setLevel('');
       setNotes('');
       if (result?.submitted) {
-        setSubmittedMsg('Submitted — pending HR approval.');
+        setSubmittedMsg(t('employeeCard.submitted'));
       }
       onAdded();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -281,20 +294,20 @@ export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
 
   return (
     <form onSubmit={handleSubmit} style={styles.addForm}>
-      <h3 style={styles.sectionTitle}>Add entry</h3>
-      {selfServiceOnly && <p style={styles.note}>New entries need HR approval once submitted.</p>}
+      <h3 style={styles.sectionTitle}>{t('employeeCard.addEntry')}</h3>
+      {selfServiceOnly && <p style={styles.note}>{t('employeeCard.newEntryNote')}</p>}
       {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
       {error && <p style={styles.error}>{error}</p>}
       <div style={styles.addFormRow}>
         <select value={category} onChange={(e) => setCategory(e.target.value)} style={styles.input}>
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {t(`employeeCard.category.${c}`)}
             </option>
           ))}
         </select>
         <input
-          placeholder="Item (e.g. Blender, Bahasa Indonesia, AWS Certified...)"
+          placeholder={t('employeeCard.itemPlaceholder')}
           value={item}
           onChange={(e) => setItem(e.target.value)}
           style={{ ...styles.input, flex: 2 }}
@@ -302,18 +315,18 @@ export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
         <select value={level} onChange={(e) => setLevel(e.target.value)} style={styles.input}>
           {LEVELS.map((l) => (
             <option key={l} value={l}>
-              {l === '' ? 'Level (n/a)' : l}
+              {l === '' ? t('employeeCard.levelNa') : l}
             </option>
           ))}
         </select>
         <input
-          placeholder="Notes (optional)"
+          placeholder={t('common.notesOptional')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           style={{ ...styles.input, flex: 2 }}
         />
         <button type="submit" disabled={saving} style={styles.addButton}>
-          {saving ? 'Adding…' : 'Add'}
+          {saving ? t('common.adding') : t('common.add')}
         </button>
       </div>
     </form>
@@ -321,6 +334,7 @@ export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
 }
 
 export function SkillRow({ entry, onChanged, selfServiceOnly }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [category, setCategory] = useState(entry.category);
   const [item, setItem] = useState(entry.item);
@@ -338,29 +352,29 @@ export function SkillRow({ entry, onChanged, selfServiceOnly }) {
     try {
       const result = await api.updateSkillEntry({ id: entry.id, category, item, level, notes });
       if (result?.submitted) {
-        setSubmittedMsg('Submitted — pending HR approval.');
+        setSubmittedMsg(t('employeeCard.submitted'));
       }
       setEditing(false);
       onChanged();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Remove "${entry.item}"?`)) return;
+    if (!window.confirm(t('employeeCard.removeConfirm', { item: entry.item }))) return;
     setSaving(true);
     setError('');
     try {
       const result = await api.deleteSkillEntry(entry.id);
       if (result?.submitted) {
-        setSubmittedMsg('Removal submitted — pending HR approval.');
+        setSubmittedMsg(t('employeeCard.removalSubmitted'));
       }
       onChanged();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
       setSaving(false);
     }
   }
@@ -372,7 +386,7 @@ export function SkillRow({ entry, onChanged, selfServiceOnly }) {
           <select value={category} onChange={(e) => setCategory(e.target.value)} style={styles.input}>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {t(`employeeCard.category.${c}`)}
               </option>
             ))}
           </select>
@@ -380,21 +394,21 @@ export function SkillRow({ entry, onChanged, selfServiceOnly }) {
           <select value={level} onChange={(e) => setLevel(e.target.value)} style={styles.input}>
             {LEVELS.map((l) => (
               <option key={l} value={l}>
-                {l === '' ? 'Level (n/a)' : l}
+                {l === '' ? t('employeeCard.levelNa') : l}
               </option>
             ))}
           </select>
           <input
-            placeholder="Notes"
+            placeholder={t('common.notes')}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             style={{ ...styles.input, flex: 2 }}
           />
           <button type="submit" disabled={saving} style={styles.addButton}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common.saving') : t('common.save')}
           </button>
           <button type="button" onClick={() => setEditing(false)} style={styles.cancelButton}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </form>
         {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
@@ -412,10 +426,10 @@ export function SkillRow({ entry, onChanged, selfServiceOnly }) {
       </span>
       <span style={styles.rowActions}>
         <button onClick={() => setEditing(true)} style={styles.rowButton}>
-          Edit
+          {t('common.edit')}
         </button>
         <button onClick={handleDelete} disabled={saving} style={styles.rowButton}>
-          Delete
+          {t('common.delete')}
         </button>
       </span>
       {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}

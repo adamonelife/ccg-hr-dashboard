@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { useT } from '../lib/i18n.jsx';
 
 // 'Company' deliberately not offered here — CC/CC Landscape/Pelago etc. are
 // separate companies externally but just teams under Operations
@@ -20,6 +21,7 @@ export default function OrgChart({ role }) {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const t = useT();
 
   useEffect(() => {
     load();
@@ -37,17 +39,17 @@ export default function OrgChart({ role }) {
         setUnits(unitData.units || []);
         setEmployees(empData.employees || []);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <p>{t('common.loading')}</p>;
   if (error) return <p style={styles.error}>{error}</p>;
 
   return (
     <div>
-      <h2>Organisation structure</h2>
-      {tree.length === 0 && <p style={styles.hint}>No org units defined yet — add one below.</p>}
+      <h2>{t('orgChart.title')}</h2>
+      {tree.length === 0 && <p style={styles.hint}>{t('orgChart.noUnits')}</p>}
       {tree.map((node) => (
         <TreeNode
           key={node.name}
@@ -57,18 +59,19 @@ export default function OrgChart({ role }) {
           units={units}
           canManage={canManage}
           onChanged={load}
+          t={t}
         />
       ))}
 
-      {canManage && <AddUnitForm units={units} employees={employees} onAdded={load} />}
+      {canManage && <AddUnitForm units={units} employees={employees} onAdded={load} t={t} />}
 
-      <h2 style={{ marginTop: 32 }}>Reporting lines</h2>
+      <h2 style={{ marginTop: 32 }}>{t('orgChart.reportingLines')}</h2>
       <table style={styles.table}>
         <thead>
           <tr>
-            <th style={styles.th}>Employee</th>
-            <th style={styles.th}>Title</th>
-            <th style={styles.th}>Reports to</th>
+            <th style={styles.th}>{t('orgChart.employee')}</th>
+            <th style={styles.th}>{t('orgChart.title_')}</th>
+            <th style={styles.th}>{t('orgChart.reportsTo')}</th>
           </tr>
         </thead>
         <tbody>
@@ -82,7 +85,7 @@ export default function OrgChart({ role }) {
           {reportingLines.length === 0 && (
             <tr>
               <td style={styles.td} colSpan={3}>
-                No reporting lines yet — set manager_id on employee records.
+                {t('orgChart.noReportingLines')}
               </td>
             </tr>
           )}
@@ -92,7 +95,7 @@ export default function OrgChart({ role }) {
   );
 }
 
-function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
+function TreeNode({ node, depth, employees, units, canManage, onChanged, t }) {
   const [assigning, setAssigning] = useState(false);
   const [leadId, setLeadId] = useState(node.lead_employee_id || '');
   const [moving, setMoving] = useState(false);
@@ -111,7 +114,7 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
       setAssigning(false);
       onChanged();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -126,7 +129,7 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
       setMoving(false);
       onChanged();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -141,21 +144,21 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
       setReordering(false);
       onChanged();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Delete "${node.name}"? This only works if it has no sub-units under it.`)) return;
+    if (!window.confirm(t('orgChart.deleteConfirm', { name: node.name }))) return;
     setSaving(true);
     setError('');
     try {
       await api.deleteOrgUnit(node.name);
       onChanged();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
       setSaving(false);
     }
   }
@@ -171,21 +174,26 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
       <div style={styles.nodeRow}>
         <div style={styles.nodeLabel}>
           <span style={styles.nodeType}>{node.type}</span> {node.name}
-          {node.lead_name && <span style={styles.leadTag}> · Lead: {node.lead_name}</span>}
+          {node.lead_name && (
+            <span style={styles.leadTag}>
+              {' '}
+              · {t('orgChart.lead')}: {node.lead_name}
+            </span>
+          )}
         </div>
         {canManage && (
           <span style={styles.nodeActions}>
             <button onClick={() => setAssigning((v) => !v)} style={styles.rowButton}>
-              {node.lead_name ? 'Change lead' : 'Assign lead'}
+              {node.lead_name ? t('orgChart.changeLead') : t('orgChart.assignLead')}
             </button>
             <button onClick={() => setMoving((v) => !v)} style={styles.rowButton}>
-              Move
+              {t('orgChart.move')}
             </button>
             <button onClick={() => setReordering((v) => !v)} style={styles.rowButton}>
-              Reorder
+              {t('orgChart.reorder')}
             </button>
             <button onClick={handleDelete} disabled={saving} style={styles.rowButton}>
-              Delete
+              {t('orgChart.delete')}
             </button>
           </span>
         )}
@@ -194,7 +202,7 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
       {canManage && assigning && (
         <form onSubmit={handleSaveLead} style={styles.inlineForm}>
           <select value={leadId} onChange={(e) => setLeadId(e.target.value)} style={styles.select}>
-            <option value="">— none —</option>
+            <option value="">{t('orgChart.noneOption')}</option>
             {employees.map((emp) => (
               <option key={emp.employee_id} value={emp.employee_id}>
                 {emp.nickname || emp.full_name}
@@ -202,10 +210,10 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
             ))}
           </select>
           <button type="submit" disabled={saving} style={styles.addButton}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common.saving') : t('common.save')}
           </button>
           <button type="button" onClick={() => setAssigning(false)} style={styles.cancelButton}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </form>
       )}
@@ -213,7 +221,7 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
       {canManage && moving && (
         <form onSubmit={handleMove} style={styles.inlineForm}>
           <select value={newParent} onChange={(e) => setNewParent(e.target.value)} style={styles.select}>
-            <option value="">— top level —</option>
+            <option value="">{t('orgChart.topLevelOption')}</option>
             {moveOptions.map((u) => (
               <option key={u.unit_name} value={u.unit_name}>
                 {u.unit_name}
@@ -221,10 +229,10 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
             ))}
           </select>
           <button type="submit" disabled={saving} style={styles.addButton}>
-            {saving ? 'Moving…' : 'Move here'}
+            {saving ? t('orgChart.moving') : t('orgChart.moveHere')}
           </button>
           <button type="button" onClick={() => setMoving(false)} style={styles.cancelButton}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </form>
       )}
@@ -233,16 +241,16 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
         <form onSubmit={handleSaveOrder} style={styles.inlineForm}>
           <input
             type="number"
-            placeholder="Order (lower = earlier)"
+            placeholder={t('orgChart.orderPlaceholder')}
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
             style={{ ...styles.select, width: 160 }}
           />
           <button type="submit" disabled={saving} style={styles.addButton}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common.saving') : t('common.save')}
           </button>
           <button type="button" onClick={() => setReordering(false)} style={styles.cancelButton}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </form>
       )}
@@ -266,13 +274,14 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged }) {
           units={units}
           canManage={canManage}
           onChanged={onChanged}
+          t={t}
         />
       ))}
     </div>
   );
 }
 
-function AddUnitForm({ units, employees, onAdded }) {
+function AddUnitForm({ units, employees, onAdded, t }) {
   const [unitName, setUnitName] = useState('');
   const [unitType, setUnitType] = useState('Team');
   const [parentUnitName, setParentUnitName] = useState('');
@@ -297,7 +306,7 @@ function AddUnitForm({ units, employees, onAdded }) {
       setLeadId('');
       onAdded();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -305,10 +314,10 @@ function AddUnitForm({ units, employees, onAdded }) {
 
   return (
     <div style={styles.addUnitPanel}>
-      <h3 style={styles.sectionTitle}>Add company / department / team</h3>
+      <h3 style={styles.sectionTitle}>{t('orgChart.addUnit')}</h3>
       <form onSubmit={handleSubmit} style={styles.inlineForm}>
         <input
-          placeholder="Name (e.g. RT3D, Creative, Concepts Conveyed Group)"
+          placeholder={t('orgChart.unitNamePlaceholder')}
           value={unitName}
           onChange={(e) => setUnitName(e.target.value)}
           style={{ ...styles.select, flex: 2 }}
@@ -321,7 +330,7 @@ function AddUnitForm({ units, employees, onAdded }) {
           ))}
         </select>
         <select value={parentUnitName} onChange={(e) => setParentUnitName(e.target.value)} style={styles.select}>
-          <option value="">— top level —</option>
+          <option value="">{t('orgChart.topLevelOption')}</option>
           {units.map((u) => (
             <option key={u.unit_name} value={u.unit_name}>
               {u.unit_name}
@@ -329,7 +338,7 @@ function AddUnitForm({ units, employees, onAdded }) {
           ))}
         </select>
         <select value={leadId} onChange={(e) => setLeadId(e.target.value)} style={styles.select}>
-          <option value="">— no lead yet —</option>
+          <option value="">{t('orgChart.noLeadYetOption')}</option>
           {employees.map((emp) => (
             <option key={emp.employee_id} value={emp.employee_id}>
               {emp.nickname || emp.full_name}
@@ -337,7 +346,7 @@ function AddUnitForm({ units, employees, onAdded }) {
           ))}
         </select>
         <button type="submit" disabled={saving} style={styles.addButton}>
-          {saving ? 'Adding…' : 'Add'}
+          {saving ? t('common.adding') : t('common.add')}
         </button>
       </form>
       {error && <p style={styles.error}>{error}</p>}

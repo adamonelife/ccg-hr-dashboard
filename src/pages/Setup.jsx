@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { DesignDisciplinePanel, AddSkillForm, SkillRow, CATEGORIES } from './EmployeeCard.jsx';
+import { LanguageToggle, useT } from '../lib/i18n.jsx';
 
 // Forced first-login onboarding gate. Shown instead of the whole app
 // (no nav, no logout-and-skip) whenever /api/auth/me comes back with a
@@ -11,6 +12,10 @@ import { DesignDisciplinePanel, AddSkillForm, SkillRow, CATEGORIES } from './Emp
 // nothing about how an entry looks or saves differs between "filling this
 // in for the first time" and "editing it later."
 //
+// Field labels are looked up via `employeeForm.field.${key}` — the same
+// dictionary keys EmployeeForm.jsx uses, since this is the exact same
+// field set (SELF_SERVICE_FIELDS) under a different heading.
+//
 // Every save made from this screen lands directly (no change-request
 // detour) — lib/employees.mjs's PATCH handler and lib/skills.mjs's
 // POST/PATCH/DELETE handlers both check profile_setup_completed_at
@@ -19,20 +24,21 @@ import { DesignDisciplinePanel, AddSkillForm, SkillRow, CATEGORIES } from './Emp
 // flips that flag (complete_setup: true), sent together with whatever's
 // currently in the details form.
 const FIELDS = [
-  { key: 'nickname', label: 'Nickname', type: 'text' },
-  { key: 'photo_url', label: 'Photo URL', type: 'text' },
-  { key: 'phone', label: 'Phone', type: 'text' },
-  { key: 'address', label: 'Address', type: 'text' },
-  { key: 'emergency_contact_name', label: 'Emergency contact name', type: 'text' },
-  { key: 'emergency_contact_phone', label: 'Emergency contact phone', type: 'text' },
-  { key: 'emergency_contact_relationship', label: 'Emergency contact relationship', type: 'text' },
-  { key: 'nationality', label: 'Nationality', type: 'text' },
-  { key: 'date_of_birth', label: 'Date of birth', type: 'date' },
-  { key: 'religion', label: 'Religion', type: 'text' },
-  { key: 'office_location', label: 'Office location', type: 'text' },
+  { key: 'nickname', type: 'text' },
+  { key: 'photo_url', type: 'text' },
+  { key: 'phone', type: 'text' },
+  { key: 'address', type: 'text' },
+  { key: 'emergency_contact_name', type: 'text' },
+  { key: 'emergency_contact_phone', type: 'text' },
+  { key: 'emergency_contact_relationship', type: 'text' },
+  { key: 'nationality', type: 'text' },
+  { key: 'date_of_birth', type: 'date' },
+  { key: 'religion', type: 'text' },
+  { key: 'office_location', type: 'text' },
 ];
 
 export default function Setup({ employeeId, onFinished }) {
+  const t = useT();
   const [employee, setEmployee] = useState(null);
   const [skills, setSkills] = useState([]);
   const [form, setForm] = useState({});
@@ -55,7 +61,7 @@ export default function Setup({ employeeId, onFinished }) {
         setSkills(skillData.skills || []);
         setForm(Object.fromEntries(FIELDS.map((f) => [f.key, empData.employee?.[f.key] || ''])));
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }
 
@@ -67,9 +73,9 @@ export default function Setup({ employeeId, onFinished }) {
     try {
       const data = await api.updateEmployee({ employee_id: employeeId, ...form });
       setEmployee(data.employee);
-      setSavedNote('Saved.');
+      setSavedNote(t('setup.saved'));
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSaving(false);
     }
@@ -83,12 +89,12 @@ export default function Setup({ employeeId, onFinished }) {
       setEmployee(data.employee);
       onFinished();
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
       setFinishing(false);
     }
   }
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <p>{t('common.loading')}</p>;
   if (!employee) return error ? <p style={styles.error}>{error}</p> : null;
 
   const byCategory = {};
@@ -99,25 +105,21 @@ export default function Setup({ employeeId, onFinished }) {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Welcome, {employee.nickname || employee.full_name}</h1>
-        <p style={styles.intro}>
-          Before you can use the rest of the app, take a minute to fill in your details and skills below.
-          Once you click "Finish setup", any further changes to your card will need HR sign-off — this first
-          pass doesn't.
-        </p>
+        <div style={styles.toggleRow}>
+          <LanguageToggle />
+        </div>
+        <h1 style={styles.title}>{t('setup.welcome', { name: employee.nickname || employee.full_name })}</h1>
+        <p style={styles.intro}>{t('setup.intro')}</p>
 
         {error && <p style={styles.error}>{error}</p>}
 
         <form onSubmit={handleSaveDetails} style={styles.section}>
-          <h3 style={styles.sectionTitle}>Your details</h3>
-          <p style={styles.confirmNote}>
-            We've already filled in what we have on file — please check it's correct and fill in anything
-            that's missing or out of date.
-          </p>
+          <h3 style={styles.sectionTitle}>{t('setup.yourDetails')}</h3>
+          <p style={styles.confirmNote}>{t('setup.confirmNote')}</p>
           <div style={styles.grid}>
             {FIELDS.map((f) => (
               <label key={f.key} style={styles.fieldLabel}>
-                {f.label}
+                {t(`employeeForm.field.${f.key}`)}
                 <input
                   type={f.type}
                   value={form[f.key] || ''}
@@ -129,7 +131,7 @@ export default function Setup({ employeeId, onFinished }) {
           </div>
           <div style={styles.detailsActions}>
             <button type="submit" disabled={saving} style={styles.saveButton}>
-              {saving ? 'Saving…' : 'Save details'}
+              {saving ? t('common.saving') : t('setup.saveDetails')}
             </button>
             {savedNote && <span style={styles.savedNote}>{savedNote}</span>}
           </div>
@@ -141,7 +143,7 @@ export default function Setup({ employeeId, onFinished }) {
 
         {CATEGORIES.map((cat) => (
           <div key={cat} style={styles.section}>
-            <h3 style={styles.sectionTitle}>{cat}</h3>
+            <h3 style={styles.sectionTitle}>{t(`employeeCard.category.${cat}`)}</h3>
             {byCategory[cat]?.length > 0 ? (
               <ul style={styles.list}>
                 {byCategory[cat].map((s) => (
@@ -149,7 +151,7 @@ export default function Setup({ employeeId, onFinished }) {
                 ))}
               </ul>
             ) : (
-              <p style={styles.empty}>None recorded</p>
+              <p style={styles.empty}>{t('employeeCard.none')}</p>
             )}
           </div>
         ))}
@@ -158,7 +160,7 @@ export default function Setup({ employeeId, onFinished }) {
 
         <div style={styles.finishRow}>
           <button onClick={handleFinish} disabled={finishing} style={styles.finishButton}>
-            {finishing ? 'Finishing…' : 'Finish setup and enter the app'}
+            {finishing ? t('setup.finishing') : t('setup.finish')}
           </button>
         </div>
       </div>
@@ -178,6 +180,7 @@ const styles = {
     height: 'fit-content',
     fontFamily: 'system-ui, sans-serif',
   },
+  toggleRow: { display: 'flex', justifyContent: 'flex-end', marginBottom: 8 },
   title: { margin: '0 0 8px 0', fontSize: 22 },
   intro: { color: '#555', fontSize: 14, lineHeight: 1.5, marginBottom: 24 },
   section: { marginBottom: 16, borderTop: '1px solid #eee', paddingTop: 16 },
