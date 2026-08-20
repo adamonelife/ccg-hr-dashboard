@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from './lib/api.js';
 import Logo from './Logo.jsx';
+import { LanguageToggle, useT } from './lib/i18n.jsx';
 
 // Reached via a one-time link an admin generates and shares manually (see
 // EmployeeForm.jsx's "Login account" section) — /?setup=<token>. No
@@ -12,16 +13,17 @@ export default function SetPassword({ token, onDone }) {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const t = useT();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError(t('setPassword.tooShort'));
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match');
+      setError(t('setPassword.mismatch'));
       return;
     }
     setSubmitting(true);
@@ -29,7 +31,7 @@ export default function SetPassword({ token, onDone }) {
       await api.setPassword(token, password);
       setDone(true);
     } catch (err) {
-      setError(err.message);
+      setError(t.err(err.message));
     } finally {
       setSubmitting(false);
     }
@@ -40,11 +42,14 @@ export default function SetPassword({ token, onDone }) {
       <div style={styles.wrap}>
         <div style={styles.form}>
           <div style={styles.logoRow}>
-            <Logo height={36} />
+            <Logo height={54} />
           </div>
-          <p>Password set. You can log in now.</p>
+          <div style={styles.toggleRow}>
+            <LanguageToggle />
+          </div>
+          <p>{t('setPassword.done')}</p>
           <button onClick={onDone} style={styles.button}>
-            Go to login
+            {t('setPassword.goToLogin')}
           </button>
         </div>
       </div>
@@ -54,12 +59,15 @@ export default function SetPassword({ token, onDone }) {
   return (
     <div style={styles.wrap}>
       <form onSubmit={handleSubmit} style={styles.form}>
-        <h1 style={styles.title}>Set your password</h1>
+        <div style={styles.toggleRow}>
+          <LanguageToggle />
+        </div>
+        <h1 style={styles.title}>{t('setPassword.title')}</h1>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="New password (min. 8 characters)"
+          placeholder={t('setPassword.newPasswordPlaceholder')}
           autoFocus
           style={styles.input}
         />
@@ -67,12 +75,12 @@ export default function SetPassword({ token, onDone }) {
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          placeholder="Confirm password"
+          placeholder={t('setPassword.confirmPlaceholder')}
           style={styles.input}
         />
         {error && <div style={styles.error}>{error}</div>}
         <button type="submit" disabled={submitting} style={styles.button}>
-          {submitting ? 'Saving…' : 'Set password'}
+          {submitting ? t('setPassword.saving') : t('setPassword.setPassword')}
         </button>
       </form>
     </div>
@@ -100,6 +108,7 @@ const styles = {
   },
   title: { margin: 0, marginBottom: 8, fontSize: 18 },
   logoRow: { display: 'flex', justifyContent: 'center', marginBottom: 8 },
+  toggleRow: { display: 'flex', justifyContent: 'center', marginBottom: 4 },
   input: { padding: 10, fontSize: 14, border: '1px solid #ccc', borderRadius: 4 },
   button: {
     padding: 10,

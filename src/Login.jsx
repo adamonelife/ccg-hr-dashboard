@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import Logo from './Logo.jsx';
+import { LanguageToggle, useT } from './lib/i18n.jsx';
 
 export default function Login({ onLoggedIn }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const t = useT();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -19,12 +21,12 @@ export default function Login({ onLoggedIn }) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || 'Login failed');
+        setError(data.error ? t.err(data.error) : t('login.failed'));
         return;
       }
       onLoggedIn();
     } catch {
-      setError('Network error');
+      setError(t('login.networkError'));
     } finally {
       setSubmitting(false);
     }
@@ -36,11 +38,14 @@ export default function Login({ onLoggedIn }) {
         <div style={styles.logoRow}>
           <Logo height={54} />
         </div>
+        <div style={styles.toggleRow}>
+          <LanguageToggle />
+        </div>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email (leave blank for admin login)"
+          placeholder={t('login.emailPlaceholder')}
           autoFocus
           style={styles.input}
         />
@@ -48,12 +53,12 @@ export default function Login({ onLoggedIn }) {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
+          placeholder={t('login.passwordPlaceholder')}
           style={styles.input}
         />
         {error && <div style={styles.error}>{error}</div>}
         <button type="submit" disabled={submitting} style={styles.button}>
-          {submitting ? 'Signing in…' : 'Sign in'}
+          {submitting ? t('login.signingIn') : t('login.signIn')}
         </button>
       </form>
     </div>
@@ -80,6 +85,7 @@ const styles = {
     boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
   },
   logoRow: { display: 'flex', justifyContent: 'center', marginBottom: 8 },
+  toggleRow: { display: 'flex', justifyContent: 'center', marginBottom: 4 },
   input: { padding: 10, fontSize: 14, border: '1px solid #ccc', borderRadius: 4 },
   button: {
     padding: 10,

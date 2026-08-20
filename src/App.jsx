@@ -10,6 +10,7 @@ import Leave from './pages/Leave.jsx';
 import Documents from './pages/Documents.jsx';
 import Setup from './pages/Setup.jsx';
 import ChangeRequests from './pages/ChangeRequests.jsx';
+import { LanguageProvider, LanguageToggle, useT } from './lib/i18n.jsx';
 
 // Mirrors lib/permissions.mjs's STAFF_MANAGEMENT_ROLES (not
 // FULL_VISIBILITY_ROLES — that one's specifically about self-edit
@@ -19,7 +20,19 @@ import ChangeRequests from './pages/ChangeRequests.jsx';
 // itself is the real enforcement.
 const STAFF_MANAGEMENT_ROLES = ['Administrator', 'Director', 'HR', 'Finance'];
 
+// LanguageProvider wraps literally everything, including the pre-auth
+// screens (Login/SetPassword/the initial "checking session" loader) —
+// someone shouldn't have to log in before they can read the login screen
+// in their own language. See src/lib/i18n.jsx.
 export default function App() {
+  return (
+    <LanguageProvider>
+      <AppInner />
+    </LanguageProvider>
+  );
+}
+
+function AppInner() {
   const [status, setStatus] = useState('checking'); // checking | authed | anon
   // { user, role, employee_id, full_name } once authed — role-based UI
   // (Directory columns/buttons) reads this, not just "are they logged in."
@@ -68,13 +81,16 @@ export default function App() {
       <div
         style={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 16,
           height: '100vh',
           background: '#f5f5f5',
         }}
       >
         <Logo height={60} />
+        <LanguageToggle />
       </div>
     );
   }
@@ -96,6 +112,7 @@ export default function App() {
 // { name: 'card', employeeId: string }
 function Dashboard({ session, onLoggedOut }) {
   const [view, setView] = useState({ name: 'directory' });
+  const t = useT();
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -106,25 +123,28 @@ function Dashboard({ session, onLoggedOut }) {
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Logo height={42} />
-        <button onClick={handleLogout}>Log out</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <LanguageToggle />
+          <button onClick={handleLogout}>{t('app.logOut')}</button>
+        </div>
       </div>
 
       <nav style={{ display: 'flex', gap: 16, marginBottom: 24, borderBottom: '1px solid #eee', paddingBottom: 12 }}>
         <NavLink active={view.name === 'directory'} onClick={() => setView({ name: 'directory' })}>
-          Directory
+          {t('app.navDirectory')}
         </NavLink>
         <NavLink active={view.name === 'orgchart'} onClick={() => setView({ name: 'orgchart' })}>
-          Org chart
+          {t('app.navOrgChart')}
         </NavLink>
         <NavLink active={view.name === 'leave'} onClick={() => setView({ name: 'leave' })}>
-          Leave
+          {t('app.navLeave')}
         </NavLink>
         <NavLink active={view.name === 'documents'} onClick={() => setView({ name: 'documents' })}>
-          Documents
+          {t('app.navDocuments')}
         </NavLink>
         {STAFF_MANAGEMENT_ROLES.includes(session?.role) && (
           <NavLink active={view.name === 'change-requests'} onClick={() => setView({ name: 'change-requests' })}>
-            Change requests
+            {t('app.navChangeRequests')}
           </NavLink>
         )}
       </nav>
