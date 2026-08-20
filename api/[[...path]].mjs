@@ -104,7 +104,7 @@ const routes = {
   // Phase 3 — self-service change requests (first-login setup gate +
   // permanent HR-approval workflow for further self-edits to profile/
   // skills data). requireAuth, not requireRole — handleChangeRequests
-  // itself checks FULL_VISIBILITY_ROLES for the review queue (GET
+  // itself checks STAFF_MANAGEMENT_ROLES for the review queue (GET
   // ?scope=queue) and the approve/reject PATCH, and checks "is this your
   // own record" for the plain GET ?employeeId=. See lib/change-requests.mjs.
   'change-requests': requireAuth(handleChangeRequests),
