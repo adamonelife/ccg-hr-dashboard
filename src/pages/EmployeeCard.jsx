@@ -37,7 +37,7 @@ const DISCIPLINE_ITEMS = ['Architecture', 'Landscape', 'Interior', 'Marketing', 
 // Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES — see
 // EmployeeForm.jsx's copy of the same list for why this stays a plain UI-
 // only array instead of a shared import (server-side is the real gate).
-const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR'];
+const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR', 'Finance'];
 
 // Re-exported so src/pages/Setup.jsx (first-login onboarding gate) can
 // reuse the exact same skills widgets instead of forking them — the

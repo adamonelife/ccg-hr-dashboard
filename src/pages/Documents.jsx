@@ -18,8 +18,10 @@ const DOC_FULL_VISIBILITY_ROLES = ['Administrator', 'HR', 'Finance', 'Director']
 // would just 403 on.
 const RESTRICTED_VIEWER_ROLES = ['HR', 'Finance'];
 const RESTRICTED_TARGET_ROLES = ['Director', 'Administrator'];
-// Company documents: who can upload/delete (not Finance, not leads).
-const COMPANY_UPLOAD_ROLES = ['Administrator', 'HR', 'Director'];
+// Company documents: who can upload/delete (not leads). Finance added per
+// Adam's explicit ask for HR/Finance parity — mirrors lib/documents.mjs's
+// COMPANY_UPLOAD_ROLES.
+const COMPANY_UPLOAD_ROLES = ['Administrator', 'HR', 'Director', 'Finance'];
 // Low to high — a company document's access_role is the minimum tier that
 // can see it; picking "Team Lead" means Team Lead and everyone above see
 // it, Employees don't.

@@ -8,7 +8,7 @@ import { useT } from '../lib/i18n.jsx';
 // self-editing, non-trusted employee can't touch, and to switch the save
 // button's behaviour/copy between "saves immediately" and "submits for
 // HR approval." Keep in sync with those two if either list ever changes.
-const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR'];
+const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR', 'Finance'];
 const SELF_SERVICE_FIELDS = [
   'nickname',
   'photo_url',
