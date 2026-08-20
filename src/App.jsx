@@ -11,10 +11,13 @@ import Documents from './pages/Documents.jsx';
 import Setup from './pages/Setup.jsx';
 import ChangeRequests from './pages/ChangeRequests.jsx';
 
-// Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES — see
-// EmployeeForm.jsx/EmployeeCard.jsx's copies of the same list. Gates the
-// "Change requests" nav tab; the route itself is the real enforcement.
-const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR'];
+// Mirrors lib/permissions.mjs's STAFF_MANAGEMENT_ROLES (not
+// FULL_VISIBILITY_ROLES — that one's specifically about self-edit
+// exemption, see EmployeeForm.jsx/EmployeeCard.jsx's copies of it; this
+// one is about who can review OTHER people's change requests, which
+// includes Finance). Gates the "Change requests" nav tab; the route
+// itself is the real enforcement.
+const STAFF_MANAGEMENT_ROLES = ['Administrator', 'Director', 'HR', 'Finance'];
 
 export default function App() {
   const [status, setStatus] = useState('checking'); // checking | authed | anon
@@ -119,7 +122,7 @@ function Dashboard({ session, onLoggedOut }) {
         <NavLink active={view.name === 'documents'} onClick={() => setView({ name: 'documents' })}>
           Documents
         </NavLink>
-        {FULL_VISIBILITY_ROLES.includes(session?.role) && (
+        {STAFF_MANAGEMENT_ROLES.includes(session?.role) && (
           <NavLink active={view.name === 'change-requests'} onClick={() => setView({ name: 'change-requests' })}>
             Change requests
           </NavLink>
@@ -159,7 +162,7 @@ function Dashboard({ session, onLoggedOut }) {
 
       {view.name === 'documents' && <Documents session={session} />}
 
-      {view.name === 'change-requests' && FULL_VISIBILITY_ROLES.includes(session?.role) && <ChangeRequests />}
+      {view.name === 'change-requests' && STAFF_MANAGEMENT_ROLES.includes(session?.role) && <ChangeRequests />}
     </div>
   );
 }
