@@ -108,33 +108,36 @@ need shows up.
   Monday.com and skip this module? Worth deciding closer to Phase 8 rather
   than now.
 - ~~Multi-user access~~ *(built — see Status below)* — real per-person
-  login now exists alongside the original Adam-only master password. Login
-  mechanism ended up simpler than the original magic-link-via-email plan:
-  no email sending is wired up at all (deliberate call, to avoid taking on
-  email infrastructure — Resend/Google Workspace delegation/etc. — before
-  it's actually needed). An admin generates a one-time setup link
-  (`lib/accounts.mjs`) and shares it manually (Slack, WhatsApp, whatever);
-  the person visits it once to set their own password
+  login now exists alongside the original Adam-only master password. An
+  admin generates a one-time setup link (`lib/accounts.mjs`); the person
+  visits it once to set their own password
   (`POST /api/auth/set-password`), then logs in normally with email +
-  password from then on. Revisit real email delivery if manual sharing
-  becomes annoying at higher headcount.
+  password from then on. Originally shared manually (Slack, WhatsApp) with
+  no email sending at all — see "Setup-link emails" in Status below for
+  why/how that changed.
 
 ### Permission model for multi-user login (built)
 
-- **Card/profile visibility** follows the org chart, not a flat role
-  check: a Team's lead sees that team; a Department's lead sees everyone
-  nested under it (all its teams, sub-departments, etc.); scales up the
-  same way to Company/Group. Driven by `org_units.lead_employee_id` (set
-  via the Org Chart page's "Assign lead" control) with a recursive lookup
-  down the tree — see `lib/permissions.mjs`. `Administrator`/`Director`/`HR`
-  see everyone, no scoping needed.
-- **Scope of what's actually gated today:** the Employee Card and the
-  "Edit full profile" page (`lib/employees.mjs`, `lib/skills.mjs`). The
-  Directory list and Org Chart tree are **not** scoped yet — everyone
-  authenticated still sees the full list/tree (names, titles, departments),
-  just not full profile/skills detail outside their scope. Directory-wide
-  restriction (e.g. a plain Employee seeing only their own row) is a
-  separate, not-yet-built piece.
+- **Card/profile visibility** follows the org chart for most roles, not a
+  flat role check: a Team's lead sees that team; a Department's lead sees
+  everyone nested under it (all its teams, sub-departments, etc.); scales
+  up the same way to Company/Group. Driven by `org_units.lead_employee_id`
+  (set via the Org Chart page's "Assign lead" control) with a recursive
+  lookup down the tree — see `lib/permissions.mjs`. Two roles sit outside
+  that org-chart scoping entirely: `Administrator`/`Director` see
+  literally everyone (`UNRESTRICTED_VISIBILITY_ROLES`), and `HR`/`Finance`
+  see everyone *except* Director/Administrator records
+  (`STAFF_MANAGEMENT_ROLES` minus `RESTRICTED_TARGET_ROLES` — see "HR/
+  Finance staff-management tier" in Status below for the full reasoning).
+- **Scope of what's actually gated today:** the Employee Card, the "Edit
+  full profile" page (`lib/employees.mjs`, `lib/skills.mjs`), Leave, and
+  Documents. The Directory list and Org Chart tree structure are **not**
+  scoped — everyone authenticated still sees the full list/tree (names,
+  titles, departments), just not full profile/skills/leave/document detail
+  outside their tier (HR/Finance additionally can't drill into a Director's
+  or Administrator's row from the Directory — see Status below). Directory-
+  wide restriction beyond that (e.g. a plain Employee seeing only their own
+  row) is a separate, not-yet-built piece.
 - ~~Employee role self-service (view own record read-only, submit edit
   requests rather than editing directly)~~ *(built — see Status below)* —
   a plain Employee-role account (or Team Lead/Main Lead/Finance) now goes
@@ -147,7 +150,8 @@ need shows up.
   *(built)* — Leave Management reuses this same visibility model for the
   approvals queue (`getVisibleEmployeeIds()` in `lib/permissions.mjs`, used
   by `lib/leave.mjs`): a lead approves requests for their scope,
-  Administrator/Director/HR see everyone's.
+  Administrator/Director see everyone's, HR/Finance see everyone's except
+  Director/Administrator's own.
 - Maps onto the existing `permission_role` field on `employees`
   (`Employee`, `Team Lead`, `Main Lead`, `HR`, `Finance`, `Director`,
   `Administrator`) — role casing had to be normalized to match this exactly
@@ -248,14 +252,21 @@ need shows up.
       place in this codebase that uses a small library instead of raw
       fetch, since hand-rolling multipart boundary parsing is genuinely
       easy to get subtly wrong). New env var: `GOOGLE_DRIVE_ID`.
-- [x] Design Discipline — a fixed three-checkbox widget (Architecture/
-      Landscape/Interior, each revealing a 0–5 level dropdown once
-      checked) on the Employee Card, shown first, above the generic skills
-      categories (`DesignDisciplinePanel` in `src/pages/EmployeeCard.jsx`).
-      Backed by the same `skills` table as everything else — `'Design
-      Discipline'` is a real `category` value (`lib/skills.mjs`), just one
-      the generic "Add skill" form deliberately excludes so it can only
-      ever hold exactly those three items, never stray free-text entries.
+- [x] Discipline — a fixed checkbox widget (each item revealing a 0–5
+      level dropdown once checked) on the Employee Card, shown first,
+      above the generic skills categories (`DesignDisciplinePanel` in
+      `src/pages/EmployeeCard.jsx`). Started as Architecture/Landscape/
+      Interior only, then widened to also cover non-creative staff —
+      Marketing/Sales/HR/Finance — once it came up that not everyone at
+      CCG is design staff; on-screen heading changed from "Design
+      Discipline" to plain "Discipline" to match. Backed by the same
+      `skills` table as everything else — `'Design Discipline'` is the
+      real `category` value underneath (`lib/skills.mjs`), left as-is
+      rather than renamed when the item list widened (nothing displays
+      the raw category string, so there was nothing to gain from a
+      migration); the generic "Add skill" form deliberately excludes it so
+      it can only ever hold exactly the fixed item list, never stray
+      free-text entries.
 - [x] First-login setup + self-service change requests — a real
       per-person login (anyone other than the master-admin bootstrap) is
       forced through a one-time onboarding screen (`src/pages/Setup.jsx`)
@@ -269,16 +280,71 @@ need shows up.
       as a `Pending` row in the new `change_requests` table
       (`lib/change-requests.mjs`) instead, shows up as "pending HR
       approval" inline wherever it was submitted from, and only takes
-      effect once approved from the new "Change requests" nav tab
-      (`src/pages/ChangeRequests.jsx`, Administrator/HR/Director only —
-      matches `FULL_VISIBILITY_ROLES`, same set that's exempt from ever
-      needing to submit a request for their own record). Covers exactly
+      effect once approved from the "Change requests" nav tab
+      (`src/pages/ChangeRequests.jsx`, Administrator/HR/Director only at
+      the time this was built — Finance added to the review roster in a
+      later pass, see "HR/Finance staff-management tier" below; the
+      self-edit-exemption set — who's exempt from ever needing to submit a
+      request for their own record — stayed Administrator/HR/Director,
+      unaffected by that later change). Covers exactly
       `SELF_SERVICE_FIELDS` (contact/personal info — nickname, photo,
       phone, address, emergency contact, nationality, DOB, religion,
       office location) plus skill add/update/delete; everything
       employment- or compensation-related (salary, role, department, KITAS/
       passport/contract dates, etc.) stays HR/Admin-only as before,
       unaffected by any of this.
+- [x] Setup-link emails — "Create login" on an employee's profile now
+      tries to email the one-time setup link straight to the address
+      entered, via Gmail (`lib/gmail-client.mjs`), instead of requiring
+      Adam to copy the link and send it manually every time. Reuses the
+      same service account as Sheets/Drive, granted "domain-wide
+      delegation" (a one-time Workspace admin-console step — see
+      `SETUP.md` step 6) so it can send as a real mailbox
+      (`GMAIL_SEND_AS`, new env var) rather than as itself — Gmail has no
+      concept of a service account's own inbox to send from. The link is
+      still always shown in the UI too (`AccountPanel` in
+      `EmployeeForm.jsx`) and still works as a manual fallback if
+      delegation isn't set up yet or a send fails for some reason (bad
+      address, etc.) — account/token creation never depends on the email
+      actually going out.
+- [x] HR/Finance staff-management tier — per Adam's explicit spec ("HR +
+      Finance should see all staff, org chart (view only), full access to
+      leave/documents/change requests, but not anyone above them —
+      Operations + Executive"), `lib/permissions.mjs` now has three tiers
+      instead of two: `UNRESTRICTED_VISIBILITY_ROLES` (Administrator,
+      Director — literally everyone, no exceptions, same two roles that
+      can edit org structure) and `STAFF_MANAGEMENT_ROLES` (adds HR,
+      Finance — everyone except `RESTRICTED_TARGET_ROLES`, i.e. anyone
+      with permission_role Director or Administrator, which is how
+      "Operations + Executive" got translated into something enforceable
+      without depending on specific org-unit names). Applied consistently
+      across Employee Card/Skills visibility, Leave (approvals queue,
+      submit-on-behalf, balance management), personal Documents
+      (`lib/documents.mjs`, which already had Finance in its own
+      full-visibility set — just needed the new exclusion added), and the
+      Change-requests review queue (Finance is now trusted to review
+      others' requests, even though — asymmetrically, and deliberately —
+      their own edits still go through approval, matching how Leave
+      approvals already work: you can approve others', never your own).
+      `FULL_VISIBILITY_ROLES` (Administrator/Director/HR) was kept as a
+      separate, narrower concept rather than widened — it answers a
+      different question ("does editing your OWN record apply directly or
+      need sign-off") that Adam didn't ask to change; Finance's own
+      profile/skill edits still route through change requests same as
+      before. Org Chart mutation was already Administrator/Director-only
+      (`lib/org.mjs`'s `MUTATE_ROLES`, unchanged) — HR/Finance already
+      could only view it, satisfying "not make any changes to org
+      structure" with no code change needed there. Directory.jsx and
+      Documents.jsx's "pick an employee" pickers now also hide Director/
+      Administrator rows specifically for HR/Finance viewers (UI
+      convenience — the backend was already the real enforcement either
+      way) rather than showing a control that would just 403.
+      **Interpretation call, flagged for Adam to correct if wrong:** the
+      plain Directory roster (name/title/department/team/status — no
+      sensitive columns) still shows Director/Administrator rows to HR/
+      Finance; only the drill-down (View card, Edit, Leave/Documents/
+      Change-request access) is blocked. If the ask was to hide those
+      people from the roster entirely too, that's a follow-up.
 - [ ] Phase 2 remainder — Notifications (KITAS/passport/contract/probation
       expiry) + Disciplinary Records still outstanding; Documents (above)
       is done.
