@@ -11,6 +11,12 @@ const DOCUMENT_TYPES = [
 // Personal documents: who sees everyone's, not just their own. Deliberately
 // includes Finance here, unlike the org-chart-scoped modules elsewhere.
 const DOC_FULL_VISIBILITY_ROLES = ['Administrator', 'HR', 'Finance', 'Director'];
+// Of the roles above, HR/Finance have the Director/Administrator exclusion
+// (mirrors lib/permissions.mjs's RESTRICTED_TARGET_ROLES) — used to filter
+// the "pick anyone" dropdown below so it doesn't offer someone the backend
+// would just 403 on.
+const RESTRICTED_VIEWER_ROLES = ['HR', 'Finance'];
+const RESTRICTED_TARGET_ROLES = ['Director', 'Administrator'];
 // Company documents: who can upload/delete (not Finance, not leads).
 const COMPANY_UPLOAD_ROLES = ['Administrator', 'HR', 'Director'];
 // Low to high — a company document's access_role is the minimum tier that
@@ -35,7 +41,7 @@ export default function Documents({ session }) {
         </p>
       )}
 
-      {canSeeEveryonesPersonal && <EmployeeDocuments />}
+      {canSeeEveryonesPersonal && <EmployeeDocuments role={session?.role} />}
 
       <CompanyDocuments canUpload={canUploadCompany} />
     </div>
@@ -53,7 +59,7 @@ function MyDocuments({ employeeId }) {
   );
 }
 
-function EmployeeDocuments() {
+function EmployeeDocuments({ role }) {
   const [employees, setEmployees] = useState([]);
   const [employeeId, setEmployeeId] = useState('');
 
@@ -64,13 +70,20 @@ function EmployeeDocuments() {
       .catch(() => {});
   }, []);
 
+  // HR/Finance: drop Director/Administrator from the picker entirely —
+  // the backend would 403 on them anyway (lib/documents.mjs's
+  // canViewPersonalDocs), so there's nothing to usefully pick them for.
+  const pickable = RESTRICTED_VIEWER_ROLES.includes(role)
+    ? employees.filter((emp) => !RESTRICTED_TARGET_ROLES.includes(emp.permission_role))
+    : employees;
+
   return (
     <div style={styles.section}>
       <h3>Employee documents</h3>
       <p style={styles.hint}>Pick anyone to view or add to their personal documents.</p>
       <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} style={styles.input}>
         <option value="">— select employee —</option>
-        {employees.map((emp) => (
+        {pickable.map((emp) => (
           <option key={emp.employee_id} value={emp.employee_id}>
             {emp.nickname || emp.full_name} ({emp.employee_id})
           </option>
