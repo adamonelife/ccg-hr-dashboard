@@ -345,6 +345,38 @@ need shows up.
       Finance; only the drill-down (View card, Edit, Leave/Documents/
       Change-request access) is blocked. If the ask was to hide those
       people from the roster entirely too, that's a follow-up.
+- [x] English/Indonesian language toggle — the whole app (nav, forms,
+      tables, buttons, confirmations, hints, the onboarding screen, the
+      change-request review queue) is now bilingual, switchable at any
+      time via an EN/ID toggle shown on the login/set-password screens and
+      the dashboard header. Hand-rolled rather than a library
+      (`src/lib/i18n.jsx` — `LanguageProvider`/`useT()`/`LanguageToggle`,
+      no react-i18next or similar), matching how the rest of the codebase
+      avoids SDK/abstraction layers generally. Dot-namespaced dictionary
+      keys per page/section (`directory.*`, `employeeForm.field.*`, etc.),
+      `{placeholder}` interpolation for strings with variables (counts,
+      names, dates), choice persisted in `localStorage`
+      (`ccg_hr_language`) — safe here since this is a real deployed app in
+      the person's own browser, unlike an in-chat Claude preview.
+      `t.err(message)` best-effort translates the small enumerable set of
+      *static* error strings this app's own backend returns verbatim
+      (e.g. "Insufficient permissions") — it does not attempt to translate
+      arbitrary dynamic error text from Postgres or a third-party API,
+      which stays in English since there's no reliable way to
+      pre-translate free-form runtime messages. The account-setup email
+      (`lib/accounts.mjs`) is bilingual too — English then Indonesian in
+      one email body, since there's nowhere to store a per-employee
+      language preference at the point that email goes out (no password
+      set yet, let alone a saved browser-side toggle choice). Employee-
+      form field labels reused for the same field set in the onboarding
+      screen (`Setup.jsx`) rather than duplicating a second copy of every
+      label. Caught and fixed in passing: `Leave.jsx`'s local
+      `BALANCE_MANAGE_ROLES` copy was missing Finance (the backend
+      (`lib/leave.mjs`) had already been widened to include Finance during
+      the earlier HR/Finance staff-management-tier work, but this
+      UI-only mirror had been missed, so Finance could allocate leave
+      balances server-side but never saw the section to do it from) — now
+      matches.
 - [ ] Phase 2 remainder — Notifications (KITAS/passport/contract/probation
       expiry) + Disciplinary Records still outstanding; Documents (above)
       is done.
