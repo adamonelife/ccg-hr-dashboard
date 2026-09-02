@@ -99,6 +99,17 @@ CREATE TABLE employees (
   religion                        TEXT CHECK (religion IN (
                                      'Islam', 'Kristen', 'Katholik', 'Hindu', 'Buddha', 'Konghucu', 'NA'
                                    )),
+  gender                           TEXT CHECK (gender IN ('Female', 'Male')),
+  marital_status                  TEXT CHECK (marital_status IN ('Single', 'Married')),
+  -- Deliberately independent of marital_status — someone can have
+  -- children without being married, so this is always editable, not
+  -- gated behind Married in the UI.
+  number_of_children              INTEGER,
+  -- Indonesian national ID card number. Free text, not numeric — KTP
+  -- numbers are 16 digits but can have context-dependent formatting, and
+  -- there's no validation upside to storing it as a number here.
+  ktp_number                      TEXT,
+  bni_account_number              TEXT,
   employment_status               TEXT NOT NULL DEFAULT 'Active' CHECK (employment_status IN (
                                      'Active', 'On Leave', 'Notice Period', 'Terminated', 'Resigned'
                                    )),
