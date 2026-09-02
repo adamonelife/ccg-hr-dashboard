@@ -20,6 +20,9 @@ const SELF_SERVICE_FIELDS = [
   'nationality',
   'date_of_birth',
   'religion',
+  'gender',
+  'marital_status',
+  'number_of_children',
   'office_location',
 ];
 
@@ -46,6 +49,7 @@ const SECTIONS = [
     titleKey: 'personal',
     fields: [
       { key: 'date_of_birth', type: 'date' },
+      { key: 'gender', type: 'select', options: ['Female', 'Male'] },
       { key: 'address' },
       { key: 'nationality' },
       {
@@ -53,6 +57,10 @@ const SECTIONS = [
         type: 'select',
         options: ['Islam', 'Kristen', 'Katholik', 'Hindu', 'Buddha', 'Konghucu', 'NA'],
       },
+      { key: 'marital_status', type: 'select', options: ['Single', 'Married'] },
+      // Deliberately not conditional on marital_status — someone can have
+      // children without being married.
+      { key: 'number_of_children', type: 'number' },
       { key: 'emergency_contact_name' },
       { key: 'emergency_contact_phone' },
       { key: 'emergency_contact_relationship' },
@@ -68,6 +76,8 @@ const SECTIONS = [
       },
       { key: 'start_date', type: 'date' },
       { key: 'end_date', type: 'date' },
+      { key: 'ktp_number' },
+      { key: 'bni_account_number' },
     ],
   },
   {
@@ -276,7 +286,9 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
           <fieldset key={section.titleKey} style={styles.fieldset}>
             <legend style={styles.legend}>{t(`employeeForm.section.${section.titleKey}`)}</legend>
             <div style={styles.grid}>
-              {section.fields.map((f) => {
+              {section.fields
+                .filter((f) => !f.showIf || f.showIf(form))
+                .map((f) => {
                 // Static options (f.options) or live ones pulled from
                 // OrgUnits (f.dynamic). Either way, if the employee's
                 // current value isn't in the list — e.g. legacy data, or

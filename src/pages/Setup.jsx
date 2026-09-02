@@ -28,12 +28,17 @@ const FIELDS = [
   { key: 'photo_url', type: 'text' },
   { key: 'phone', type: 'text' },
   { key: 'address', type: 'text' },
+  { key: 'gender', type: 'select', options: ['Female', 'Male'] },
   { key: 'emergency_contact_name', type: 'text' },
   { key: 'emergency_contact_phone', type: 'text' },
   { key: 'emergency_contact_relationship', type: 'text' },
   { key: 'nationality', type: 'text' },
   { key: 'date_of_birth', type: 'date' },
   { key: 'religion', type: 'text' },
+  { key: 'marital_status', type: 'select', options: ['Single', 'Married'] },
+  // Deliberately not conditional on marital_status — someone can have
+  // children without being married.
+  { key: 'number_of_children', type: 'number' },
   { key: 'office_location', type: 'text' },
 ];
 
@@ -117,15 +122,30 @@ export default function Setup({ employeeId, onFinished }) {
           <h3 style={styles.sectionTitle}>{t('setup.yourDetails')}</h3>
           <p style={styles.confirmNote}>{t('setup.confirmNote')}</p>
           <div style={styles.grid}>
-            {FIELDS.map((f) => (
+            {FIELDS.filter((f) => !f.showIf || f.showIf(form)).map((f) => (
               <label key={f.key} style={styles.fieldLabel}>
                 {t(`employeeForm.field.${f.key}`)}
-                <input
-                  type={f.type}
-                  value={form[f.key] || ''}
-                  onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
-                  style={styles.input}
-                />
+                {f.type === 'select' ? (
+                  <select
+                    value={form[f.key] || ''}
+                    onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
+                    style={styles.input}
+                  >
+                    <option value="">—</option>
+                    {f.options.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={f.type}
+                    value={form[f.key] || ''}
+                    onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
+                    style={styles.input}
+                  />
+                )}
               </label>
             ))}
           </div>
