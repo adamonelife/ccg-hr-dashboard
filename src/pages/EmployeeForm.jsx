@@ -267,6 +267,7 @@ export default function EmployeeForm({
   onSaved,
   onDirtyChange,
   onCancel,
+  onDeleted,
 }) {
   const u = useUI();
   const { notify, confirm } = useFeedback();
@@ -446,7 +447,9 @@ export default function EmployeeForm({
       await api.deleteEmployee(employeeId);
       setActionResult(u("deleted"));
       notify(u("deleted"));
-      onCancel();
+      setDirty(false);
+      onDirtyChange?.(false);
+      (onDeleted || onCancel)();
     } catch (err) {
       setError(t.err(err.message));
       setDeleting(false);

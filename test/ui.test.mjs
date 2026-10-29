@@ -147,4 +147,12 @@ test('Technical errors become useful bilingual messages without provider details
   const msg=safeError('Postgres SQL error on Vercel: Google API stack trace',lang);assert(!/SQL|Postgres|Vercel|Google API|stack trace/.test(msg));assert(msg.length>20);
  }
 });
+test('Deleting from the edit form returns to Directory rather than the deleted profile',async()=>{
+ const session={role:'Administrator',employee_id:null};apiFixture(session);let deleted=false,cancelled=false;
+ const tree=await render(React.createElement(PresentationProvider,null,React.createElement(EmployeeForm,{employeeId:'employee',session,onDeleted(){deleted=true;},onCancel(){cancelled=true;},onSaved(){}})));
+ await act(async()=>{tree.root.findAllByType('button').find(b=>text(b)==='Delete employee').props.onClick();});
+ const input=tree.root.findByProps({role:'dialog'}).findByType('input');await act(async()=>input.props.onChange({target:{value:'employee'}}));
+ await act(async()=>{tree.root.findByProps({role:'dialog'}).findAllByType('button').find(b=>text(b)==='Delete').props.onClick();});
+ assert.equal(deleted,true);assert.equal(cancelled,false);assert(calls.some(c=>c.opts.method==='DELETE'));await act(async()=>tree.unmount());
+});
 after(async()=>{await rm(temp,{recursive:true,force:true});});

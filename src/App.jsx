@@ -300,6 +300,11 @@ function Dashboard({ session, onLoggedOut }) {
                   saved: true,
                 });
               }}
+              onDeleted={() => {
+                setDirectoryRevision((v) => v + 1);
+                setDirty(false);
+                setView({ name: "directory" });
+              }}
               onCancel={() =>
                 navigate(
                   view.employeeId
