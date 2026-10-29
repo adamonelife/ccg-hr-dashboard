@@ -155,4 +155,8 @@ test('Deleting from the edit form returns to Directory rather than the deleted p
  await act(async()=>{tree.root.findByProps({role:'dialog'}).findAllByType('button').find(b=>text(b)==='Delete').props.onClick();});
  assert.equal(deleted,true);assert.equal(cancelled,false);assert(calls.some(c=>c.opts.method==='DELETE'));await act(async()=>tree.unmount());
 });
+test('Former employees keep neutral status badges',async()=>{
+ const tree=await render(React.createElement('div',null,React.createElement(Badge,{value:'Resigned'}),React.createElement(Badge,{value:'Terminated'})));
+ assert.equal(tree.root.findAllByType('span').filter(x=>x.props.className==='np-badge np-badge-neutral').length,2);await act(async()=>tree.unmount());
+});
 after(async()=>{await rm(temp,{recursive:true,force:true});});

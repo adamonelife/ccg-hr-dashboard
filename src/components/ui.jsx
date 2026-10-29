@@ -64,7 +64,7 @@ export function Badge({ value }) {
     ? "success"
     : ["pending", "on leave", "notice period"].includes(key)
       ? "warning"
-      : ["rejected", "terminated"].includes(key)
+      : ["rejected"].includes(key)
         ? "danger"
         : "neutral";
   return <span className={`np-badge np-badge-${tone}`}>{value || "—"}</span>;
