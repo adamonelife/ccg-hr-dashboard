@@ -203,7 +203,7 @@ select:focus-visible {
   width: 100%;
   border: 0;
   background: transparent;
-  color: #626b7b;
+  color: var(--brand-text-muted);
   text-align: left;
   border-radius: 9px;
   padding: 12px 13px;
@@ -362,7 +362,7 @@ select:focus-visible {
 .np-button-primary {
   background: var(--people-primary);
   color: var(--people-on-primary);
-  box-shadow: 0 2px 3px #8b5cf614;
+  box-shadow: 0 2px 3px #1118270f;
 }
 .np-button-primary:hover:not(:disabled) {
   background: var(--people-primary-hover);
@@ -374,13 +374,13 @@ select:focus-visible {
 }
 .np-button-secondary {
   background: white;
-  color: #475164;
-  border-color: #dfe3ea;
+  color: var(--brand-text-muted);
+  border-color: var(--brand-border);
   box-shadow: none;
 }
 .np-button-secondary:hover:not(:disabled) {
   background: var(--brand-background);
-  border-color: #c8cdd7;
+  border-color: var(--brand-border);
 }
 .np-button-ghost {
   background: transparent;
@@ -411,7 +411,7 @@ select:focus-visible {
 .np-select {
   width: 100%;
   min-width: 0;
-  border: 1px solid #dfe3ea;
+  border: 1px solid var(--brand-border);
   border-radius: 8px;
   background: var(--brand-surface);
   color: var(--brand-text);
@@ -430,7 +430,7 @@ select:focus-visible {
 }
 .np-input:disabled,
 .np-select:disabled {
-  background: #f5f6f8;
+  background: var(--brand-background);
   color: #768091;
   cursor: default;
 }
@@ -447,7 +447,7 @@ select:focus-visible {
   gap: 7px;
   font-size: 11px;
   font-weight: 550;
-  color: #525d70;
+  color: var(--brand-text-muted);
   min-width: 0;
 }
 .np-field > span {
@@ -608,21 +608,21 @@ select:focus-visible {
   min-width: 600px;
 }
 .np-table th {
-  background: #fafbfc;
+  background: var(--brand-background);
   color: var(--brand-text-muted);
   text-transform: uppercase;
   font-size: 9px;
   letter-spacing: 0.08em;
   font-weight: 650;
-  border-top: 1px solid #eef0f4;
-  border-bottom: 1px solid #eef0f4;
+  border-top: 1px solid var(--brand-border);
+  border-bottom: 1px solid var(--brand-border);
   padding: 14px 20px;
   white-space: nowrap;
 }
 .np-table td {
   padding: 18px 20px;
-  border-bottom: 1px solid #f0f1f5;
-  color: #697385;
+  border-bottom: 1px solid var(--brand-border);
+  color: var(--brand-text-muted);
   font-size: 11px;
   vertical-align: middle;
 }
@@ -630,7 +630,7 @@ select:focus-visible {
   border-bottom: 0;
 }
 .np-table tbody tr:hover {
-  background: #fdfcfe;
+  background: var(--brand-background);
 }
 .np-employee-cell {
   display: flex;
@@ -645,8 +645,8 @@ select:focus-visible {
   width: 38px;
   height: 38px;
   border-radius: 11px;
-  background: #f0ecf8;
-  color: #7755a7;
+  background: var(--people-tint);
+  color: var(--people-primary-active);
   font-size: 11px;
   font-weight: 650;
   flex-shrink: 0;
@@ -668,7 +668,7 @@ select:focus-visible {
 }
 .np-employee-cell strong {
   display: block;
-  color: #313b4d;
+  color: var(--brand-text);
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 4px;
@@ -687,11 +687,11 @@ select:focus-visible {
 }
 .np-team-tag {
   display: inline-flex;
-  background: #f5f6f8;
+  background: var(--brand-background);
   padding: 5px 8px;
   border-radius: 5px;
   font-size: 10px;
-  color: #687285;
+  color: var(--brand-text-muted);
   white-space: nowrap;
 }
 .np-badge {
@@ -725,7 +725,7 @@ select:focus-visible {
   color: var(--danger);
 }
 .np-badge-neutral {
-  background: #f1f3f6;
+  background: var(--brand-background);
   color: var(--brand-text-muted);
 }
 .np-open-button {
@@ -742,7 +742,7 @@ select:focus-visible {
 .np-register-footer {
   display: flex;
   justify-content: space-between;
-  border-top: 1px solid #eef0f4;
+  border-top: 1px solid var(--brand-border);
   padding: 16px 25px;
   font-size: 10px;
   color: var(--brand-text-muted);
@@ -812,7 +812,7 @@ select:focus-visible {
 }
 .np-detail-grid dd {
   font-size: 12px;
-  color: #38445a;
+  color: var(--brand-text);
   margin: 0;
   overflow-wrap: anywhere;
   line-height: 1.6;
@@ -876,7 +876,7 @@ select:focus-visible {
   gap: 12px;
   flex-wrap: wrap;
   padding: 12px 0;
-  border-bottom: 1px solid #f0f1f4;
+  border-bottom: 1px solid var(--brand-border);
   font-size: 12px;
 }
 .np-skill-row > .np-inline-form {
@@ -949,7 +949,7 @@ select:focus-visible {
   color: var(--brand-text-muted);
 }
 .np-empty h3 {
-  color: #687386;
+  color: var(--brand-text-muted);
   font-size: 13px;
   margin: 12px 0 7px;
 }
@@ -991,7 +991,7 @@ select:focus-visible {
 .np-skeleton {
   height: 12px;
   max-width: 500px;
-  background: #f0f1f5;
+  background: var(--brand-border);
   border-radius: 4px;
   margin-top: 22px;
   animation: pulse 1.5s ease-in-out infinite;
