@@ -1,3 +1,4 @@
+import { safeError } from './errors.js';
 import { createContext, useContext, useEffect, useState } from 'react';
 
 // src/lib/i18n.jsx — English/Indonesian language toggle for the whole app.
@@ -124,15 +125,7 @@ export function useT() {
     const value = TRANSLATIONS[language]?.[key] ?? TRANSLATIONS.en[key] ?? key;
     return interpolate(value, vars);
   }
-  t.err = function translateError(message) {
-    if (!message) return message;
-    const table = ERROR_TRANSLATIONS[language];
-    if (!table) return message;
-    for (const [needle, translated] of Object.entries(table)) {
-      if (message.includes(needle)) return message.replace(needle, translated);
-    }
-    return message;
-  };
+  t.err = message => message ? safeError(message, language) : message;
   t.lang = language;
   return t;
 }
@@ -179,6 +172,7 @@ const TRANSLATIONS = {
     'common.submit': 'Submit',
     'common.submitting': 'Submitting…',
     'common.yes': 'Yes',
+    'common.no': 'No',
     'common.none': 'None',
     'common.notes': 'Notes',
     'common.notesOptional': 'Notes (optional)',
@@ -205,8 +199,8 @@ const TRANSLATIONS = {
     'setPassword.mismatch': 'Passwords do not match',
 
     // ── app / nav ──
-    'app.navDirectory': 'Directory',
-    'app.navOrgChart': 'Org chart',
+    'app.navDirectory': 'People',
+    'app.navOrgChart': 'Organisation',
     'app.navLeave': 'Leave',
     'app.navDocuments': 'Documents',
     'app.navChangeRequests': 'Change requests',
@@ -290,7 +284,7 @@ const TRANSLATIONS = {
     'employeeForm.pendingBanner': 'You have {count} change request(s) awaiting HR approval.',
     'employeeForm.submittedMsg': 'Submitted — your change is pending HR approval.',
     'employeeForm.deleteConfirm':
-      'Permanently delete {name}? This also deletes their salary history, promotion history, and skills — there\'s no undo. If they\'ve actually left, use "Employment status" → Terminated/Resigned instead to keep their record.',
+      'Delete {name}?',
     'employeeForm.loginAccount': 'Login account',
     'employeeForm.emailPlaceholder': 'Email',
     'employeeForm.createLogin': 'Create login',
@@ -396,7 +390,7 @@ const TRANSLATIONS = {
     'documents.noRecordHint': "This login isn't linked to an employee record, so there's no personal document list to show here — company documents below still work.",
     'documents.myDocuments': 'My documents',
     'documents.employeeDocuments': 'Employee documents',
-    'documents.pickAnyoneHint': 'Pick anyone to view or add to their personal documents.',
+    'documents.pickAnyoneHint': 'Select an employee to view or add documents within your authorised access.',
     'documents.selectEmployeeOption': '— select employee —',
     'documents.type': 'Type',
     'documents.link': 'Link',
@@ -415,7 +409,7 @@ const TRANSLATIONS = {
     'documents.deleteCompanyConfirm': 'Delete this company document?',
     'documents.titlePlaceholder': 'Title',
     'documents.accessTierHint':
-      'Documents are grouped by access tier — picking "Team Lead" both controls who can see it (Team Lead and everyone above: Main Lead, HR, Finance, Director, Administrator — plain Employees won\'t) and which folder it lands in. Uploading a file puts it in that tier\'s auto-created Drive folder (Company/{role}); pasting a link instead leaves it wherever it already lives.',
+      'Choose the minimum role that can access this document. Higher roles can also view it. Upload a file to Google Drive or use an existing link.',
 
     // ── setup ──
     'setup.welcome': 'Welcome, {name}',
@@ -460,6 +454,7 @@ const TRANSLATIONS = {
     'common.submit': 'Kirim',
     'common.submitting': 'Mengirim…',
     'common.yes': 'Ya',
+    'common.no': 'Tidak',
     'common.none': 'Tidak ada',
     'common.notes': 'Catatan',
     'common.notesOptional': 'Catatan (opsional)',
@@ -571,7 +566,7 @@ const TRANSLATIONS = {
     'employeeForm.pendingBanner': 'Anda memiliki {count} permintaan perubahan yang menunggu persetujuan HR.',
     'employeeForm.submittedMsg': 'Terkirim — perubahan Anda menunggu persetujuan HR.',
     'employeeForm.deleteConfirm':
-      'Hapus permanen {name}? Ini juga akan menghapus riwayat gaji, riwayat promosi, dan keahlian mereka — tidak bisa dibatalkan. Jika mereka sudah benar-benar keluar, gunakan "Status kepegawaian" → Diberhentikan/Mengundurkan diri agar catatannya tetap tersimpan.',
+      'Hapus {name}?',
     'employeeForm.loginAccount': 'Akun login',
     'employeeForm.emailPlaceholder': 'Email',
     'employeeForm.createLogin': 'Buat login',
@@ -696,7 +691,7 @@ const TRANSLATIONS = {
     'documents.deleteCompanyConfirm': 'Hapus dokumen perusahaan ini?',
     'documents.titlePlaceholder': 'Judul',
     'documents.accessTierHint':
-      'Dokumen dikelompokkan berdasarkan tingkat akses — memilih "Team Lead" menentukan siapa yang bisa melihatnya (Team Lead dan semua di atasnya: Main Lead, HR, Finance, Director, Administrator — Employee biasa tidak bisa) sekaligus folder tempatnya disimpan. Mengunggah file akan menempatkannya di folder Drive otomatis untuk tingkat itu (Company/{role}); menempel tautan akan membiarkannya di tempat asalnya.',
+      'Pilih peran minimum yang dapat mengakses dokumen ini. Peran di atasnya juga dapat melihat. Unggah file ke Google Drive atau gunakan tautan yang ada.',
 
     // ── setup ──
     'setup.welcome': 'Selamat datang, {name}',

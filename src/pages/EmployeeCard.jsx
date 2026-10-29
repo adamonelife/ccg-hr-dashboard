@@ -1,9 +1,26 @@
-import { useEffect, useState } from 'react';
-import { api } from '../lib/api.js';
-import { useT } from '../lib/i18n.jsx';
+import { useEffect, useState } from "react";
+import { api } from "../lib/api.js";
+import { useT } from "../lib/i18n.jsx";
+import { useUI } from "../lib/presentation.jsx";
+import {
+  Button,
+  Badge,
+  Loading,
+  Feedback,
+  Input,
+  Select,
+  Table,
+  EmptyState,
+  useFeedback,
+} from "../components/ui.jsx";
+import {
+  SALARY_ROLES,
+  PROMOTION_ROLES,
+} from "../../shared/employee-policy.mjs";
+import { HistoryPanel, AccountPanel } from "./EmployeeForm.jsx";
 
 // Keep in sync with the CHECK constraint on skills.level in db/schema.sql.
-const LEVELS = ['', '0', '1', '2', '3', '4', '5'];
+const LEVELS = ["", "0", "1", "2", "3", "4", "5"];
 
 // Keep in sync with CATEGORIES in lib/skills.mjs — minus 'Design
 // Discipline', which lib/skills.mjs accepts but this list deliberately
@@ -13,14 +30,14 @@ const LEVELS = ['', '0', '1', '2', '3', '4', '5'];
 // Values stay in English (DB category strings) — display labels are
 // looked up via `employeeCard.category.${cat}` at render time.
 const CATEGORIES = [
-  'Software Skill',
-  'Technical Skill',
-  'Soft Skill',
-  'Language',
-  'Certification',
-  'Training Completed',
-  'Training Required',
-  'Career Path',
+  "Software Skill",
+  "Technical Skill",
+  "Soft Skill",
+  "Language",
+  "Certification",
+  "Training Completed",
+  "Training Required",
+  "Career Path",
 ];
 
 // Category value stays 'Design Discipline' in the database (skills.category
@@ -31,131 +48,480 @@ const CATEGORIES = [
 // displays the raw category string anywhere. Only the on-screen heading
 // changed, from "Design Discipline" to "Discipline" (see
 // DesignDisciplinePanel's <h3> below).
-const DESIGN_DISCIPLINE_CATEGORY = 'Design Discipline';
-const DISCIPLINE_ITEMS = ['Architecture', 'Landscape', 'Interior', 'Marketing', 'Sales', 'HR', 'Finance'];
+const DESIGN_DISCIPLINE_CATEGORY = "Design Discipline";
+const DISCIPLINE_ITEMS = [
+  "Architecture",
+  "Landscape",
+  "Interior",
+  "Marketing",
+  "Sales",
+  "HR",
+  "Finance",
+];
 
 // Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES — see
 // EmployeeForm.jsx's copy of the same list for why this stays a plain UI-
 // only array instead of a shared import (server-side is the real gate).
-const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR', 'Finance'];
+const FULL_VISIBILITY_ROLES = ["Administrator", "Director", "HR", "Finance"];
 
 // Re-exported so src/pages/Setup.jsx (first-login onboarding gate) can
 // reuse the exact same skills widgets instead of forking them — the
 // onboarding screen and the card's own skills section should always look
 // and behave identically.
 export { LEVELS, CATEGORIES };
-
-export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
-  const [employee, setEmployee] = useState(null);
-  const [skills, setSkills] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [pendingRequests, setPendingRequests] = useState([]);
-  const t = useT();
-
-  // Once first-login setup is done, a self-editing, non-trusted employee's
-  // skill/Design Discipline changes go through HR approval instead of
-  // applying immediately — lib/skills.mjs enforces this server-side; this
-  // just decides whether to show the "pending approval" messaging/banner.
-  const isSelfEdit = session?.employee_id === employeeId;
-  const isTrusted = FULL_VISIBILITY_ROLES.includes(session?.role);
-  const selfServiceOnly = isSelfEdit && !isTrusted;
-
+export default function EmployeeCard({
+  employeeId,
+  session,
+  onBack,
+  onDeleted,
+  onEdit,
+}) {
+  const { notify, confirm } = useFeedback();
+  const [actionResult, setActionResult] = useState("");
+  const [deletingEmployee, setDeletingEmployee] = useState(false);
+  const [employee, setEmployee] = useState(null),
+    [permissions, setPermissions] = useState(null),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [tab, setTab] = useState("overview"),
+    [accountOpen, setAccountOpen] = useState(false);
+  const t = useT(),
+    u = useUI();
   useEffect(() => {
-    load();
-  }, [employeeId]);
-
-  function load() {
-    setLoading(true);
-    setError('');
-    Promise.all([api.getEmployee(employeeId), api.skills(employeeId)])
-      .then(([empData, skillData]) => {
-        setEmployee(empData.employee);
-        setSkills(skillData.skills || []);
+    let live = true;
+    api
+      .getEmployee(employeeId)
+      .then((data) => {
+        if (live) {
+          setEmployee(data.employee);
+          setPermissions(data.permissions);
+        }
       })
+      .catch((e) => {
+        if (live) setError(t.err(e.message));
+      })
+      .finally(() => {
+        if (live) setLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [employeeId]);
+  useEffect(() => {
+    if (employee) document.title = `${employee.full_name} · Nallin People`;
+  }, [employee]);
+  async function deleteEmployee() {
+    if (
+      !(await confirm({
+        title: t("employeeForm.deleteConfirm", { name: employee.full_name }),
+        requiredText: employeeId,
+        description: u("irreversible"),
+      }))
+    )
+      return;
+    setDeletingEmployee(true);
+    try {
+      await api.deleteEmployee(employeeId);
+      notify(u("deleted"));
+      (onDeleted || onBack)();
+    } catch (e) {
+      setError(t.err(e.message));
+    } finally {
+      setDeletingEmployee(false);
+    }
+  }
+  if (loading)
+    return (
+      <>
+        <Loading />
+        <Feedback>{actionResult}</Feedback>
+      </>
+    );
+  if (error && !employee)
+    return (
+      <>
+        <Feedback tone="error">{error}</Feedback>
+        <Feedback>{actionResult}</Feedback>
+      </>
+    );
+  if (!employee) return null;
+  const tabs = [
+    "overview",
+    "personal",
+    "employment",
+    ...(permissions?.can_view_compensation ? ["compensation"] : []),
+    "skills",
+  ];
+  const canEdit = Boolean(permissions?.editable_fields?.length);
+  const groups = {
+    overview: [
+      "employee_id",
+      "full_name",
+      "nickname",
+      "job_title",
+      "department",
+      "team",
+      "company",
+      "manager_id",
+      "employment_status",
+      "start_date",
+      "office_location",
+    ],
+    personal: [
+      "email",
+      "phone",
+      "date_of_birth",
+      "gender",
+      "address",
+      "nationality",
+      "religion",
+      "marital_status",
+      "number_of_children",
+      "emergency_contact_name",
+      "emergency_contact_phone",
+      "emergency_contact_relationship",
+    ],
+    employment: [
+      "employment_status",
+      "start_date",
+      "end_date",
+      "employment_type",
+      "contract_type",
+      "contract_start",
+      "contract_end",
+      "probation_end_date",
+      "passport_expiry",
+      "kitas_expiry",
+      "work_permit_expiry",
+      "ktp_number",
+      "permission_role",
+    ],
+    compensation: [
+      "current_salary",
+      "salary_currency",
+      "bonus_eligible",
+      "bni_account_number",
+    ],
+  };
+  return (
+    <>
+      <section>
+        <Feedback tone="error">{error}</Feedback>
+        <Button variant="ghost" className="np-back" onClick={onBack}>
+          ← {u("back")}
+        </Button>
+        <div className="np-profile-hero">
+          <div className="np-profile-person">
+            {employee.photo_url ? (
+              <img
+                className="np-avatar large"
+                src={employee.photo_url}
+                alt=""
+              />
+            ) : (
+              <span className="np-avatar large">
+                {employee.full_name
+                  .split(/\s+/)
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join("")}
+              </span>
+            )}
+            <div>
+              <p className="np-eyebrow">{employee.employee_id}</p>
+              <h1>{employee.full_name}</h1>
+              <p>{employee.job_title || employee.nickname || "—"}</p>
+              <div className="np-profile-meta">
+                <Badge value={employee.employment_status} />
+                <span>
+                  {[employee.department, employee.team]
+                    .filter(Boolean)
+                    .join(" / ")}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="np-actions">
+            {canEdit && (
+              <Button onClick={() => onEdit(employeeId)}>{u("edit")}</Button>
+            )}
+            {session.role === "Administrator" && (
+              <details className="np-more">
+                <summary>{u("more")} ⋯</summary>
+                <div>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setAccountOpen((v) => !v)}
+                  >
+                    {u("account")}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={deletingEmployee}
+                    onClick={deleteEmployee}
+                  >
+                    {deletingEmployee
+                      ? t("employeeForm.deleting")
+                      : t("employeeForm.deleteEmployee")}
+                  </Button>
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
+        <div className="np-tabs" role="tablist" aria-label={u("details")}>
+          {tabs.map((key) => (
+            <Button
+              variant="ghost"
+              type="button"
+              key={key}
+              id={`profile-tab-${key}`}
+              role="tab"
+              aria-selected={tab === key}
+              aria-controls={`profile-panel-${key}`}
+              tabIndex={tab === key ? 0 : -1}
+              className={tab === key ? "active" : ""}
+              onClick={() => setTab(key)}
+              onKeyDown={(e) => {
+                if (
+                  ["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)
+                ) {
+                  e.preventDefault();
+                  const next =
+                    e.key === "Home"
+                      ? 0
+                      : e.key === "End"
+                        ? tabs.length - 1
+                        : (tabs.indexOf(tab) +
+                            (e.key === "ArrowRight" ? 1 : -1) +
+                            tabs.length) %
+                          tabs.length;
+                  setTab(tabs[next]);
+                  e.currentTarget.parentElement.children[next].focus();
+                }
+              }}
+            >
+              {u(key)}
+            </Button>
+          ))}
+        </div>
+        <div
+          className="np-profile-panel"
+          id={`profile-panel-${tab}`}
+          role="tabpanel"
+          aria-labelledby={`profile-tab-${tab}`}
+        >
+          {tab === "skills" ? (
+            <SkillsPanel employeeId={employeeId} session={session} />
+          ) : (
+            <>
+              <div className="np-section-heading">
+                <div>
+                  <span className="np-eyebrow">{u("details")}</span>
+                  <h2>{u(tab)}</h2>
+                </div>
+                {!canEdit && <span className="np-muted">{u("readOnly")}</span>}
+              </div>
+              <dl className="np-detail-grid">
+                {groups[tab]
+                  ?.filter((key) => Object.hasOwn(employee, key))
+                  .map((key) => (
+                    <div key={key}>
+                      <dt>{t(`employeeForm.field.${key}`)}</dt>
+                      <dd>
+                        {key === "employment_status" ? (
+                          <Badge value={employee[key]} />
+                        ) : key === "bonus_eligible" ? (
+                          employee[key] === "TRUE" ? (
+                            t("common.yes")
+                          ) : (
+                            t("common.no")
+                          )
+                        ) : employee[key] === null || employee[key] === "" ? (
+                          u("notSet")
+                        ) : (
+                          String(employee[key])
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+              {tab === "compensation" && (
+                <>
+                  {SALARY_ROLES.includes(session.role) && (
+                    <HistoryPanel
+                      title={t("employeeForm.salaryHistory")}
+                      employeeId={employeeId}
+                      fetcher={api.salaryHistory}
+                      adder={api.addSalaryEntry}
+                      t={t}
+                      columns={[
+                        {
+                          key: "effective_date",
+                          label: t("employeeForm.effectiveDate"),
+                          type: "date",
+                        },
+                        {
+                          key: "amount",
+                          label: t("employeeForm.amount"),
+                          type: "number",
+                        },
+                        {
+                          key: "currency",
+                          label: t("employeeForm.currency"),
+                        },
+                        {
+                          key: "reason",
+                          label: t("employeeForm.reason"),
+                        },
+                      ]}
+                    />
+                  )}
+                  {PROMOTION_ROLES.includes(session.role) && (
+                    <HistoryPanel
+                      title={t("employeeForm.promotionHistory")}
+                      employeeId={employeeId}
+                      fetcher={api.promotionHistory}
+                      adder={api.addPromotionEntry}
+                      t={t}
+                      columns={[
+                        {
+                          key: "date",
+                          label: t("employeeForm.date"),
+                          type: "date",
+                        },
+                        {
+                          key: "previous_title",
+                          label: t("employeeForm.previousTitle"),
+                        },
+                        {
+                          key: "new_title",
+                          label: t("employeeForm.newTitle"),
+                        },
+                        {
+                          key: "notes",
+                          label: t("common.notes"),
+                        },
+                      ]}
+                    />
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+        {accountOpen && session.role === "Administrator" && (
+          <AccountPanel
+            employeeId={employeeId}
+            defaultEmail={employee.email}
+            t={t}
+          />
+        )}
+      </section>
+      <Feedback>{actionResult}</Feedback>
+    </>
+  );
+}
+export function SkillsPanel({ employeeId, session }) {
+  const { notify, confirm } = useFeedback();
+  const [actionResult, setActionResult] = useState("");
+  const [skills, setSkills] = useState([]),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [pendingRequests, setPendingRequests] = useState([]);
+  const t = useT(),
+    u = useUI();
+  const selfServiceOnly =
+    session?.employee_id === employeeId &&
+    !FULL_VISIBILITY_ROLES.includes(session?.role);
+  function load() {
+    setError("");
+    api
+      .skills(employeeId)
+      .then((data) => setSkills(data.skills || []))
       .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
-    if (selfServiceOnly) loadPendingRequests();
+    if (selfServiceOnly)
+      api
+        .myChangeRequests(employeeId)
+        .then((data) =>
+          setPendingRequests(
+            (data.requests || []).filter((r) => r.status === "Pending"),
+          ),
+        )
+        .catch(() => {});
   }
-
-  function loadPendingRequests() {
-    api
-      .myChangeRequests(employeeId)
-      .then((data) => setPendingRequests((data.requests || []).filter((r) => r.status === 'Pending')))
-      .catch(() => {
-        // Non-fatal — the card still works without the pending-requests banner.
-      });
-  }
-
-  if (loading) return <p>{t('common.loading')}</p>;
-  if (error) return <p style={styles.error}>{error}</p>;
-  if (!employee) return null;
-
+  useEffect(load, [employeeId]);
+  if (loading)
+    return (
+      <>
+        <Loading />
+        <Feedback>{actionResult}</Feedback>
+      </>
+    );
+  if (error)
+    return (
+      <>
+        <Feedback tone="error">{error}</Feedback>
+        <Feedback>{actionResult}</Feedback>
+      </>
+    );
   const byCategory = {};
-  for (const s of skills) {
-    (byCategory[s.category] ||= []).push(s);
-  }
-
+  for (const skill of skills) (byCategory[skill.category] ||= []).push(skill);
   return (
-    <div>
-      <button onClick={onBack} style={styles.back}>
-        {t('employeeCard.backToDirectory')}
-      </button>
-
-      <div style={styles.card}>
-        <div style={styles.header}>
-          {employee.photo_url ? (
-            <img src={employee.photo_url} alt="" style={styles.photo} />
-          ) : (
-            <div style={styles.photoPlaceholder}>
-              {(employee.nickname || employee.full_name || '?').charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div>
-            <h2 style={styles.name}>{employee.nickname || employee.full_name}</h2>
-            {employee.nickname && <div style={styles.fullName}>{employee.full_name}</div>}
-            <div style={styles.meta}>{employee.job_title}</div>
-            <div style={styles.meta}>
-              {[employee.department, employee.team].filter(Boolean).join(' · ')}
-            </div>
-            <div style={styles.meta}>{employee.employment_status}</div>
-          </div>
-          <button onClick={() => onEdit(employeeId)} style={styles.editButton}>
-            {t('employeeCard.editFullProfile')}
-          </button>
+    <>
+      <section className="np-skills">
+        <div className="np-section-heading">
+          <h2>{u("skills")}</h2>
         </div>
-
-        {selfServiceOnly && pendingRequests.length > 0 && (
-          <div style={styles.pendingBanner}>
-            {t('employeeCard.pendingBanner', { count: pendingRequests.length })}
-          </div>
+        {pendingRequests.length > 0 && (
+          <Feedback tone="warning">
+            {t("employeeCard.pendingBanner", {
+              count: pendingRequests.length,
+            })}
+          </Feedback>
         )}
-
         <DesignDisciplinePanel
           employeeId={employeeId}
           skills={skills}
-          onChanged={load}
+          onChanged={(message) => {
+            setActionResult(message || u("saved"));
+            load();
+          }}
           selfServiceOnly={selfServiceOnly}
         />
-
-        {CATEGORIES.map((cat) => (
-          <div key={cat} style={styles.section}>
-            <h3 style={styles.sectionTitle}>{t(`employeeCard.category.${cat}`)}</h3>
-            {byCategory[cat]?.length > 0 ? (
-              <ul style={styles.list}>
-                {byCategory[cat].map((s) => (
-                  <SkillRow key={s.id} entry={s} onChanged={load} selfServiceOnly={selfServiceOnly} />
-                ))}
-              </ul>
-            ) : (
-              <p style={styles.empty}>{t('employeeCard.none')}</p>
-            )}
-          </div>
-        ))}
-
-        <AddSkillForm employeeId={employeeId} onAdded={load} selfServiceOnly={selfServiceOnly} />
-      </div>
-    </div>
+        <div className="np-skill-categories">
+          {CATEGORIES.map((cat) => (
+            <section className="np-card" key={cat}>
+              <h3>{t(`employeeCard.category.${cat}`)}</h3>
+              {byCategory[cat]?.length ? (
+                <ul className="np-skill-list">
+                  {byCategory[cat].map((entry) => (
+                    <SkillRow
+                      key={entry.id}
+                      entry={entry}
+                      onChanged={(message) => {
+                        setActionResult(message || u("saved"));
+                        load();
+                      }}
+                      selfServiceOnly={selfServiceOnly}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <p className="np-muted">{u("noSkills")}</p>
+              )}
+            </section>
+          ))}
+        </div>
+        <AddSkillForm
+          employeeId={employeeId}
+          onAdded={load}
+          selfServiceOnly={selfServiceOnly}
+        />
+      </section>
+      <Feedback>{actionResult}</Feedback>
+    </>
   );
 }
 
@@ -165,34 +531,59 @@ export default function EmployeeCard({ employeeId, session, onBack, onEdit }) {
 // checkbox+level states against whatever skills rows already exist
 // (create/update/delete as needed) in one "Save", via the same
 // add/update/delete endpoints the rest of the card uses.
-export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServiceOnly }) {
+export function DesignDisciplinePanel({
+  employeeId,
+  skills,
+  onChanged,
+  selfServiceOnly,
+}) {
+  const u = useUI();
+  const { notify, confirm } = useFeedback();
+  const [actionResult, setActionResult] = useState("");
   const t = useT();
-  const entries = skills.filter((s) => s.category === DESIGN_DISCIPLINE_CATEGORY);
+  const entries = skills.filter(
+    (s) => s.category === DESIGN_DISCIPLINE_CATEGORY,
+  );
   const byItem = Object.fromEntries(entries.map((e) => [e.item, e]));
-
   const [checked, setChecked] = useState(() =>
-    Object.fromEntries(DISCIPLINE_ITEMS.map((item) => [item, Boolean(byItem[item])]))
+    Object.fromEntries(
+      DISCIPLINE_ITEMS.map((item) => [item, Boolean(byItem[item])]),
+    ),
   );
   const [levels, setLevels] = useState(() =>
-    Object.fromEntries(DISCIPLINE_ITEMS.map((item) => [item, byItem[item]?.level || '']))
+    Object.fromEntries(
+      DISCIPLINE_ITEMS.map((item) => [item, byItem[item]?.level || ""]),
+    ),
   );
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [submittedMsg, setSubmittedMsg] = useState('');
+  const [error, setError] = useState("");
+  const [submittedMsg, setSubmittedMsg] = useState("");
 
   // Re-sync whenever the underlying skills list changes (after a save
   // reloads it, or when switching to a different employee's card).
   useEffect(() => {
-    const current = skills.filter((s) => s.category === DESIGN_DISCIPLINE_CATEGORY);
+    const current = skills.filter(
+      (s) => s.category === DESIGN_DISCIPLINE_CATEGORY,
+    );
     const currentByItem = Object.fromEntries(current.map((e) => [e.item, e]));
-    setChecked(Object.fromEntries(DISCIPLINE_ITEMS.map((item) => [item, Boolean(currentByItem[item])])));
-    setLevels(Object.fromEntries(DISCIPLINE_ITEMS.map((item) => [item, currentByItem[item]?.level || ''])));
+    setChecked(
+      Object.fromEntries(
+        DISCIPLINE_ITEMS.map((item) => [item, Boolean(currentByItem[item])]),
+      ),
+    );
+    setLevels(
+      Object.fromEntries(
+        DISCIPLINE_ITEMS.map((item) => [
+          item,
+          currentByItem[item]?.level || "",
+        ]),
+      ),
+    );
   }, [skills]);
-
   async function handleSave() {
     setSaving(true);
-    setError('');
-    setSubmittedMsg('');
+    setError("");
+    setSubmittedMsg("");
     try {
       const results = await Promise.all(
         DISCIPLINE_ITEMS.map(async (item) => {
@@ -200,19 +591,29 @@ export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServi
           const isChecked = checked[item];
           const level = levels[item];
           if (isChecked && !existing) {
-            return api.addSkillEntry({ employee_id: employeeId, category: DESIGN_DISCIPLINE_CATEGORY, item, level });
+            return api.addSkillEntry({
+              employee_id: employeeId,
+              category: DESIGN_DISCIPLINE_CATEGORY,
+              item,
+              level,
+            });
           } else if (isChecked && existing) {
-            if ((existing.level || '') !== level) {
-              return api.updateSkillEntry({ id: existing.id, category: DESIGN_DISCIPLINE_CATEGORY, item, level });
+            if ((existing.level || "") !== level) {
+              return api.updateSkillEntry({
+                id: existing.id,
+                category: DESIGN_DISCIPLINE_CATEGORY,
+                item,
+                level,
+              });
             }
           } else if (!isChecked && existing) {
             return api.deleteSkillEntry(existing.id);
           }
           return null;
-        })
+        }),
       );
       if (results.some((r) => r?.submitted)) {
-        setSubmittedMsg(t('employeeCard.submitted'));
+        setSubmittedMsg(t("employeeCard.submitted"));
       }
       onChanged();
     } catch (err) {
@@ -221,68 +622,104 @@ export function DesignDisciplinePanel({ employeeId, skills, onChanged, selfServi
       setSaving(false);
     }
   }
-
   return (
-    <div style={styles.section}>
-      <h3 style={styles.sectionTitle}>{t('employeeCard.discipline')}</h3>
-      {selfServiceOnly && <p style={styles.note}>{t('employeeCard.disciplineNote')}</p>}
-      <div style={styles.disciplineRow}>
-        {DISCIPLINE_ITEMS.map((item) => (
-          <label key={item} style={styles.disciplineLabel}>
-            <input
-              type="checkbox"
-              checked={checked[item]}
-              onChange={(e) => setChecked((c) => ({ ...c, [item]: e.target.checked }))}
-            />
-            {item}
-            {checked[item] && (
-              <select
-                value={levels[item]}
-                onChange={(e) => setLevels((l) => ({ ...l, [item]: e.target.value }))}
-                style={styles.disciplineLevel}
-              >
-                {LEVELS.map((l) => (
-                  <option key={l} value={l}>
-                    {l === '' ? t('employeeCard.levelNa') : l}
-                  </option>
-                ))}
-              </select>
-            )}
-          </label>
-        ))}
-        <button onClick={handleSave} disabled={saving} style={styles.addButton}>
-          {saving ? t('common.saving') : t('common.save')}
-        </button>
+    <>
+      <div className="np-section">
+        <h3 className="np-section-title">{t("employeeCard.discipline")}</h3>
+        {selfServiceOnly && (
+          <p className="np-muted">{t("employeeCard.disciplineNote")}</p>
+        )}
+        <div className="np-discipline-grid">
+          {DISCIPLINE_ITEMS.map((item) => (
+            <label key={item} className="np-checkbox-field">
+              <Input
+                type="checkbox"
+                checked={checked[item]}
+                onChange={(e) =>
+                  setChecked((c) => ({
+                    ...c,
+                    [item]: e.target.checked,
+                  }))
+                }
+              />
+              {item}
+              {checked[item] && (
+                <Select
+                  aria-label={`${item} ${u("level")}`}
+                  value={levels[item]}
+                  onChange={(e) =>
+                    setLevels((l) => ({
+                      ...l,
+                      [item]: e.target.value,
+                    }))
+                  }
+                  className="np-select np-level-select"
+                >
+                  {LEVELS.map((l) => (
+                    <option key={l} value={l}>
+                      {l === "" ? t("employeeCard.levelNa") : l}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </label>
+          ))}
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="np-button-primary"
+          >
+            {saving ? t("common.saving") : t("common.save")}
+          </Button>
+        </div>
+        {submittedMsg && (
+          <p className="np-feedback np-feedback-success" role="status">
+            {submittedMsg}
+          </p>
+        )}
+        {error && (
+          <p className="np-feedback np-feedback-error" role="alert">
+            {error}
+          </p>
+        )}
       </div>
-      {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
-      {error && <p style={styles.error}>{error}</p>}
-    </div>
+      <Feedback>{actionResult}</Feedback>
+    </>
   );
 }
-
 export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
+  const u = useUI();
+  const { notify, confirm } = useFeedback();
+  const [actionResult, setActionResult] = useState("");
   const t = useT();
   const [category, setCategory] = useState(CATEGORIES[0]);
-  const [item, setItem] = useState('');
-  const [level, setLevel] = useState('');
-  const [notes, setNotes] = useState('');
+  const [item, setItem] = useState("");
+  const [level, setLevel] = useState("");
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [submittedMsg, setSubmittedMsg] = useState('');
-
+  const [error, setError] = useState("");
+  const [submittedMsg, setSubmittedMsg] = useState("");
   async function handleSubmit(e) {
     e.preventDefault();
     if (!item.trim()) return;
     setSaving(true);
-    setError('');
-    setSubmittedMsg('');
+    setError("");
+    setSubmittedMsg("");
     try {
-      const result = await api.addSkillEntry({ employee_id: employeeId, category, item, level, notes });
-      setItem('');
-      setLevel('');
-      setNotes('');
+      const result = await api.addSkillEntry({
+        employee_id: employeeId,
+        category,
+        item,
+        level,
+        notes,
+      });
+      setActionResult(result?.submitted ? u("submitted") : u("saved"));
+      notify(result?.submitted ? u("submitted") : u("saved"));
+      setItem("");
+      setLevel("");
+      setNotes("");
       if (result?.submitted) {
-        setSubmittedMsg(t('employeeCard.submitted'));
+        setSubmittedMsg(t("employeeCard.submitted"));
       }
       onAdded();
     } catch (err) {
@@ -291,68 +728,107 @@ export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
       setSaving(false);
     }
   }
-
   return (
-    <form onSubmit={handleSubmit} style={styles.addForm}>
-      <h3 style={styles.sectionTitle}>{t('employeeCard.addEntry')}</h3>
-      {selfServiceOnly && <p style={styles.note}>{t('employeeCard.newEntryNote')}</p>}
-      {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
-      {error && <p style={styles.error}>{error}</p>}
-      <div style={styles.addFormRow}>
-        <select value={category} onChange={(e) => setCategory(e.target.value)} style={styles.input}>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {t(`employeeCard.category.${c}`)}
-            </option>
-          ))}
-        </select>
-        <input
-          placeholder={t('employeeCard.itemPlaceholder')}
-          value={item}
-          onChange={(e) => setItem(e.target.value)}
-          style={{ ...styles.input, flex: 2 }}
-        />
-        <select value={level} onChange={(e) => setLevel(e.target.value)} style={styles.input}>
-          {LEVELS.map((l) => (
-            <option key={l} value={l}>
-              {l === '' ? t('employeeCard.levelNa') : l}
-            </option>
-          ))}
-        </select>
-        <input
-          placeholder={t('common.notesOptional')}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          style={{ ...styles.input, flex: 2 }}
-        />
-        <button type="submit" disabled={saving} style={styles.addButton}>
-          {saving ? t('common.adding') : t('common.add')}
-        </button>
-      </div>
-    </form>
+    <>
+      <form onSubmit={handleSubmit} className="np-panel">
+        <h3 className="np-section-title">{t("employeeCard.addEntry")}</h3>
+        {selfServiceOnly && (
+          <p className="np-muted">{t("employeeCard.newEntryNote")}</p>
+        )}
+        {submittedMsg && (
+          <p className="np-feedback np-feedback-success" role="status">
+            {submittedMsg}
+          </p>
+        )}
+        {error && (
+          <p className="np-feedback np-feedback-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="np-inline-form">
+          <Select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="np-input"
+            label={t.lang === "id" ? "Kategori" : "Category"}
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {t(`employeeCard.category.${c}`)}
+              </option>
+            ))}
+          </Select>
+          <Input
+            placeholder={t("employeeCard.itemPlaceholder")}
+            value={item}
+            onChange={(e) => setItem(e.target.value)}
+            style={{
+              flex: 2,
+            }}
+            className="np-input"
+            label={t("employeeCard.itemPlaceholder")}
+          />
+          <Select
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
+            className="np-input"
+            label={t.lang === "id" ? "Tingkat" : "Level"}
+          >
+            {LEVELS.map((l) => (
+              <option key={l} value={l}>
+                {l === "" ? t("employeeCard.levelNa") : l}
+              </option>
+            ))}
+          </Select>
+          <Input
+            placeholder={t("common.notesOptional")}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            style={{
+              flex: 2,
+            }}
+            className="np-input"
+            label={t("common.notesOptional")}
+          />
+          <Button type="submit" disabled={saving} className="np-button-primary">
+            {saving ? t("common.adding") : t("common.add")}
+          </Button>
+        </div>
+      </form>
+      <Feedback>{actionResult}</Feedback>
+    </>
   );
 }
-
 export function SkillRow({ entry, onChanged, selfServiceOnly }) {
+  const u = useUI();
+  const { notify, confirm } = useFeedback();
+  const [actionResult, setActionResult] = useState("");
   const t = useT();
   const [editing, setEditing] = useState(false);
   const [category, setCategory] = useState(entry.category);
   const [item, setItem] = useState(entry.item);
-  const [level, setLevel] = useState(entry.level || '');
-  const [notes, setNotes] = useState(entry.notes || '');
+  const [level, setLevel] = useState(entry.level || "");
+  const [notes, setNotes] = useState(entry.notes || "");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [submittedMsg, setSubmittedMsg] = useState('');
-
+  const [error, setError] = useState("");
+  const [submittedMsg, setSubmittedMsg] = useState("");
   async function handleSave(e) {
     e.preventDefault();
     if (!item.trim()) return;
     setSaving(true);
-    setError('');
+    setError("");
     try {
-      const result = await api.updateSkillEntry({ id: entry.id, category, item, level, notes });
+      const result = await api.updateSkillEntry({
+        id: entry.id,
+        category,
+        item,
+        level,
+        notes,
+      });
+      setActionResult(result?.submitted ? u("submitted") : u("saved"));
+      notify(result?.submitted ? u("submitted") : u("saved"));
       if (result?.submitted) {
-        setSubmittedMsg(t('employeeCard.submitted'));
+        setSubmittedMsg(t("employeeCard.submitted"));
       }
       setEditing(false);
       onChanged();
@@ -362,179 +838,143 @@ export function SkillRow({ entry, onChanged, selfServiceOnly }) {
       setSaving(false);
     }
   }
-
   async function handleDelete() {
-    if (!window.confirm(t('employeeCard.removeConfirm', { item: entry.item }))) return;
+    if (
+      !(await confirm({
+        title: t("employeeCard.removeConfirm", {
+          item: entry.item,
+        }),
+      }))
+    )
+      return;
     setSaving(true);
-    setError('');
+    setError("");
     try {
       const result = await api.deleteSkillEntry(entry.id);
+      setActionResult(result?.submitted ? u("submitted") : u("deleted"));
+      notify(result?.submitted ? u("submitted") : u("deleted"));
       if (result?.submitted) {
-        setSubmittedMsg(t('employeeCard.removalSubmitted'));
+        setSubmittedMsg(t("employeeCard.removalSubmitted"));
       }
-      onChanged();
+      onChanged(result?.submitted ? u("submitted") : u("deleted"));
     } catch (err) {
       setError(t.err(err.message));
+    } finally {
       setSaving(false);
     }
   }
-
   if (editing) {
     return (
-      <li style={styles.editRow}>
-        <form onSubmit={handleSave} style={styles.addFormRow}>
-          <select value={category} onChange={(e) => setCategory(e.target.value)} style={styles.input}>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {t(`employeeCard.category.${c}`)}
-              </option>
-            ))}
-          </select>
-          <input value={item} onChange={(e) => setItem(e.target.value)} style={{ ...styles.input, flex: 2 }} />
-          <select value={level} onChange={(e) => setLevel(e.target.value)} style={styles.input}>
-            {LEVELS.map((l) => (
-              <option key={l} value={l}>
-                {l === '' ? t('employeeCard.levelNa') : l}
-              </option>
-            ))}
-          </select>
-          <input
-            placeholder={t('common.notes')}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            style={{ ...styles.input, flex: 2 }}
-          />
-          <button type="submit" disabled={saving} style={styles.addButton}>
-            {saving ? t('common.saving') : t('common.save')}
-          </button>
-          <button type="button" onClick={() => setEditing(false)} style={styles.cancelButton}>
-            {t('common.cancel')}
-          </button>
-        </form>
-        {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
-        {error && <p style={styles.error}>{error}</p>}
-      </li>
+      <>
+        <li className="np-skill-row">
+          <form onSubmit={handleSave} className="np-inline-form">
+            <Select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="np-input"
+              label={t.lang === "id" ? "Kategori" : "Category"}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {t(`employeeCard.category.${c}`)}
+                </option>
+              ))}
+            </Select>
+            <Input
+              value={item}
+              onChange={(e) => setItem(e.target.value)}
+              style={{
+                flex: 2,
+              }}
+              className="np-input"
+            />
+            <Select
+              value={level}
+              onChange={(e) => setLevel(e.target.value)}
+              className="np-input"
+              label={t.lang === "id" ? "Tingkat" : "Level"}
+            >
+              {LEVELS.map((l) => (
+                <option key={l} value={l}>
+                  {l === "" ? t("employeeCard.levelNa") : l}
+                </option>
+              ))}
+            </Select>
+            <Input
+              placeholder={t("common.notes")}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              style={{
+                flex: 2,
+              }}
+              className="np-input"
+              label={t("common.notes")}
+            />
+            <Button
+              type="submit"
+              disabled={saving}
+              className="np-button-primary"
+            >
+              {saving ? t("common.saving") : t("common.save")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="np-button-secondary"
+            >
+              {t("common.cancel")}
+            </Button>
+          </form>
+          {submittedMsg && (
+            <p className="np-feedback np-feedback-success" role="status">
+              {submittedMsg}
+            </p>
+          )}
+          {error && (
+            <p className="np-feedback np-feedback-error" role="alert">
+              {error}
+            </p>
+          )}
+        </li>
+        <Feedback>{actionResult}</Feedback>
+      </>
     );
   }
-
   return (
-    <li style={styles.skillRow}>
-      <span>
-        <strong>{entry.item}</strong>
-        {entry.level && ` — ${entry.level}`}
-        {entry.notes && <span style={styles.notes}> ({entry.notes})</span>}
-      </span>
-      <span style={styles.rowActions}>
-        <button onClick={() => setEditing(true)} style={styles.rowButton}>
-          {t('common.edit')}
-        </button>
-        <button onClick={handleDelete} disabled={saving} style={styles.rowButton}>
-          {t('common.delete')}
-        </button>
-      </span>
-      {submittedMsg && <p style={styles.submittedMsg}>{submittedMsg}</p>}
-      {error && <p style={styles.error}>{error}</p>}
-    </li>
+    <>
+      <li className="np-skill-row">
+        <span>
+          <strong>{entry.item}</strong>
+          {entry.level && ` — ${entry.level}`}
+          {entry.notes && <span className="np-muted"> ({entry.notes})</span>}
+        </span>
+        <span className="np-actions">
+          <Button
+            onClick={() => setEditing(true)}
+            className="np-button-secondary np-button-small"
+          >
+            {t("common.edit")}
+          </Button>
+          <Button
+            onClick={handleDelete}
+            disabled={saving}
+            className="np-button-secondary np-button-small"
+          >
+            {t("common.delete")}
+          </Button>
+        </span>
+        {submittedMsg && (
+          <p className="np-feedback np-feedback-success" role="status">
+            {submittedMsg}
+          </p>
+        )}
+        {error && (
+          <p className="np-feedback np-feedback-error" role="alert">
+            {error}
+          </p>
+        )}
+      </li>
+      <Feedback>{actionResult}</Feedback>
+    </>
   );
 }
-
-const styles = {
-  back: {
-    background: 'none',
-    border: 'none',
-    color: '#555',
-    cursor: 'pointer',
-    padding: 0,
-    marginBottom: 8,
-    fontSize: 14,
-  },
-  card: {
-    border: '1px solid #ddd',
-    borderRadius: 8,
-    padding: 24,
-    maxWidth: 640,
-  },
-  header: { display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 24 },
-  photo: { width: 72, height: 72, borderRadius: '50%', objectFit: 'cover' },
-  photoPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: '50%',
-    background: '#111',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 28,
-    fontWeight: 600,
-  },
-  name: { margin: 0, fontSize: 20 },
-  fullName: { fontSize: 13, color: '#888' },
-  meta: { fontSize: 13, color: '#555', marginTop: 2 },
-  editButton: {
-    marginLeft: 'auto',
-    padding: '6px 12px',
-    fontSize: 13,
-    border: '1px solid #ccc',
-    borderRadius: 4,
-    background: '#fff',
-    cursor: 'pointer',
-    alignSelf: 'flex-start',
-  },
-  section: { marginBottom: 16, borderTop: '1px solid #eee', paddingTop: 12 },
-  sectionTitle: { fontSize: 14, margin: '0 0 6px 0' },
-  disciplineRow: { display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' },
-  disciplineLabel: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 },
-  disciplineLevel: { padding: 4, fontSize: 12, border: '1px solid #ccc', borderRadius: 4 },
-  list: { margin: 0, paddingLeft: 0, fontSize: 14, listStyle: 'none' },
-  notes: { color: '#777' },
-  empty: { fontSize: 13, color: '#aaa', margin: 0 },
-  addForm: { borderTop: '1px solid #eee', paddingTop: 12, marginTop: 8 },
-  addFormRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
-  input: { padding: 8, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, flex: 1 },
-  addButton: {
-    padding: '8px 16px',
-    fontSize: 13,
-    border: 'none',
-    borderRadius: 4,
-    background: '#111',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  skillRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-    padding: '4px 0',
-  },
-  rowActions: { display: 'flex', gap: 6, flexShrink: 0 },
-  rowButton: {
-    padding: '3px 8px',
-    fontSize: 12,
-    border: '1px solid #ccc',
-    borderRadius: 4,
-    background: '#fff',
-    cursor: 'pointer',
-  },
-  editRow: { padding: '4px 0' },
-  cancelButton: {
-    padding: '8px 16px',
-    fontSize: 13,
-    border: '1px solid #ccc',
-    borderRadius: 4,
-    background: '#fff',
-    cursor: 'pointer',
-  },
-  note: { fontSize: 12, color: '#888', margin: '0 0 8px 0' },
-  submittedMsg: { fontSize: 13, color: '#2a7', margin: '4px 0 0 0' },
-  pendingBanner: {
-    fontSize: 13,
-    background: '#fff8e1',
-    border: '1px solid #f0d878',
-    borderRadius: 4,
-    padding: '8px 12px',
-    marginBottom: 16,
-  },
-  error: { color: '#c00' },
-};
