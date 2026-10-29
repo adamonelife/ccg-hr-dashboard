@@ -1,163 +1,242 @@
-import { useEffect, useState } from 'react';
-import { api } from '../lib/api.js';
-import { useT } from '../lib/i18n.jsx';
-
-// Mirrors lib/permissions.mjs's STAFF_MANAGEMENT_ROLES/
-// UNRESTRICTED_VISIBILITY_ROLES/RESTRICTED_TARGET_ROLES — kept as plain
-// arrays here rather than importing from a shared lib, since this is
-// UI-only visibility (see note below) — the source of truth for anything
-// that's actually enforced lives server-side in lib/permissions.mjs and
-// lib/employees.mjs.
-const CAN_SEE_CARD_AND_SENSITIVE_COLUMNS = ['Administrator', 'Director', 'HR', 'Finance'];
-const CAN_ADD_EMPLOYEE = ['Administrator', 'Director', 'HR', 'Finance'];
-
-export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
-  const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
-  const t = useT();
-
-  const showSensitive = CAN_SEE_CARD_AND_SENSITIVE_COLUMNS.includes(role);
-  const showAdd = CAN_ADD_EMPLOYEE.includes(role);
-  const showCards = employees.some(e => e.can_view_detail);
-
-  useEffect(() => {
-    load();
-  }, []);
-
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../lib/api.js";
+import { useT } from "../lib/i18n.jsx";
+import { useUI } from "../lib/presentation.jsx";
+import {
+  Button,
+  Input,
+  Select,
+  Table,
+  Badge,
+  Loading,
+  EmptyState,
+  Feedback,
+  useFeedback,
+} from "../components/ui.jsx";
+const MANAGEMENT = ["Administrator", "Director", "HR", "Finance"];
+export default function Directory({
+  role,
+  refreshKey,
+  onOpen,
+  onOpenCard,
+  onAdd,
+}) {
+  const [employees, setEmployees] = useState([]),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState("");
+  const [query, setQuery] = useState(""),
+    [department, setDepartment] = useState(""),
+    [team, setTeam] = useState(""),
+    [status, setStatus] = useState("active");
+  const t = useT(),
+    u = useUI(),
+    management = MANAGEMENT.includes(role),
+    includeInactive = management && status !== "active";
   function load() {
     setLoading(true);
-    setError('');
+    setError("");
     api
-      .listEmployees()
+      .listEmployees(includeInactive)
       .then((data) => setEmployees(data.employees || []))
       .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }
-
-  const filtered = employees.filter((e) => {
-    const q = query.toLowerCase();
-    if (!q) return true;
-    return [e.full_name, e.nickname, e.employee_id, e.department, e.team, e.job_title]
-      .join(' ')
-      .toLowerCase()
-      .includes(q);
-  });
-
-  const columnCount = 6 + (showSensitive ? 2 : 0) + (showCards ? 1 : 0); // Name, Nickname, Job title, Department, Team, Status [+ Employee ID, Start date, card button]
-
+  useEffect(load, [includeInactive, refreshKey]);
+  const departments = [
+      ...new Set(employees.map((e) => e.department).filter(Boolean)),
+    ].sort(),
+    teams = [...new Set(employees.map((e) => e.team).filter(Boolean))].sort();
+  const filtered = useMemo(
+    () =>
+      employees.filter((e) => {
+        const inactive = ["Resigned", "Terminated"].includes(
+          e.employment_status,
+        );
+        return (
+          (!query ||
+            [
+              e.full_name,
+              e.nickname,
+              e.employee_id,
+              e.department,
+              e.team,
+              e.job_title,
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(query.toLowerCase())) &&
+          (!department || e.department === department) &&
+          (!team || e.team === team) &&
+          (status === "all" || (status === "inactive" ? inactive : !inactive))
+        );
+      }),
+    [employees, query, department, team, status],
+  );
+  const hasStart =
+    management && employees.some((e) => Object.hasOwn(e, "start_date"));
   return (
-    <div>
-      <div style={styles.toolbar}>
-        <input
-          placeholder={t('directory.searchPlaceholder')}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          style={styles.search}
-        />
-        {showAdd && (
-          <button onClick={onAdd} style={styles.addButton}>
-            {t('directory.addEmployee')}
-          </button>
+    <section className="np-directory">
+      <div className="np-page-heading">
+        <div>
+          <p className="np-eyebrow">NALLIN PEOPLE</p>
+          <h1>{u("people")}</h1>
+          <p>{u("directoryDescription")}</p>
+        </div>
+        {management && (
+          <Button onClick={onAdd}>
+            <span aria-hidden="true">＋</span>
+            {u("add")}
+          </Button>
         )}
       </div>
-
-      {loading && <p>{t('common.loading')}</p>}
-      {error && <p style={styles.error}>{error}</p>}
-
-      {!loading && !error && (
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>{t('directory.name')}</th>
-              <th style={styles.th}>{t('directory.nickname')}</th>
-              {showSensitive && <th style={styles.th}>{t('directory.employeeId')}</th>}
-              <th style={styles.th}>{t('directory.jobTitle')}</th>
-              <th style={styles.th}>{t('directory.department')}</th>
-              <th style={styles.th}>{t('directory.team')}</th>
-              <th style={styles.th}>{t('directory.status')}</th>
-              {showSensitive && <th style={styles.th}>{t('directory.startDate')}</th>}
-              {showCards && <th style={styles.th}></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((e) => {
-              // HR/Finance: this specific row is off-limits (canView would
-              // 403 server-side anyway) — still show the name/title/dept
-              // like any other row (that's just "who works here"), just
-              // don't offer a drill-down that would only dead-end.
-              const rowRestricted = !e.can_view_detail;
-              return (
-                <tr
-                  key={e.employee_id}
-                  onClick={rowRestricted ? undefined : () => onOpen(e.employee_id)}
-                  style={rowRestricted ? styles.rowDisabled : styles.row}
-                >
-                  <td style={styles.td}>{e.full_name}</td>
-                  <td style={styles.td}>{e.nickname}</td>
-                  {showSensitive && <td style={styles.td}>{e.employee_id}</td>}
-                  <td style={styles.td}>{e.job_title}</td>
-                  <td style={styles.td}>{e.department}</td>
-                  <td style={styles.td}>{e.team}</td>
-                  <td style={styles.td}>{e.employment_status}</td>
-                  {showSensitive && <td style={styles.td}>{e.start_date}</td>}
-                  {showCards && (
-                    <td style={styles.td}>
-                      {!rowRestricted && (
-                        <button
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            onOpenCard(e.employee_id);
-                          }}
-                          style={styles.cardButton}
-                        >
-                          {t('directory.viewCard')}
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-            {filtered.length === 0 && (
+      <div className="np-register-card">
+        <div className="np-register-heading">
+          <div>
+            <h2>{u("staff")}</h2>
+            <span className="np-count">{loading ? "—" : filtered.length}</span>
+          </div>
+          <span className="np-muted">
+            {!loading &&
+              `${employees.filter((e) => !["Resigned", "Terminated"].includes(e.employment_status)).length} ${u("active").toLowerCase()} ${u("employees")}`}
+          </span>
+        </div>
+        <div className="np-filters" aria-label={u("filters")}>
+          <label className="np-search">
+            <span aria-hidden="true">⌕</span>
+            <Input
+              aria-label={u("search")}
+              placeholder={u("search")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+          <label className="np-filter-label">
+            {u("department")}
+            <Select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+            >
+              <option value="">{u("all")}</option>
+              {departments.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </Select>
+          </label>
+          <label className="np-filter-label">
+            {u("team")}
+            <Select value={team} onChange={(e) => setTeam(e.target.value)}>
+              <option value="">{u("all")}</option>
+              {teams.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </Select>
+          </label>
+          <label className="np-filter-label">
+            {u("status")}
+            <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="active">{u("active")}</option>
+              {management && (
+                <>
+                  <option value="inactive">{u("inactive")}</option>
+                  <option value="all">{u("all")}</option>
+                </>
+              )}
+            </Select>
+          </label>
+        </div>
+        {loading ? (
+          <Loading />
+        ) : error ? (
+          <div className="np-state">
+            <Feedback tone="error">{error}</Feedback>
+            <Button variant="secondary" onClick={load}>
+              {u("retry")}
+            </Button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState title={u("noResults")}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setQuery("");
+                setDepartment("");
+                setTeam("");
+                setStatus("active");
+              }}
+            >
+              {u("reset")}
+            </Button>
+          </EmptyState>
+        ) : (
+          <Table>
+            <thead>
               <tr>
-                <td style={styles.td} colSpan={columnCount}>
-                  {t('directory.noEmployees')}
-                </td>
+                <th scope="col">{u("employee")}</th>
+                <th scope="col">{u("department")}</th>
+                <th scope="col">{u("team")}</th>
+                {hasStart && <th scope="col">{u("start")}</th>}
+                <th scope="col">{u("status")}</th>
+                <th scope="col">
+                  <span className="np-sr-only">{u("open")}</span>
+                </th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      )}
-    </div>
+            </thead>
+            <tbody>
+              {filtered.map((e) => (
+                <tr key={e.employee_id}>
+                  <td>
+                    <div className="np-employee-cell">
+                      <span className="np-avatar">
+                        {e.full_name
+                          .split(/\s+/)
+                          .map((n) => n[0])
+                          .slice(0, 2)
+                          .join("")}
+                      </span>
+                      <div>
+                        <strong>{e.full_name}</strong>
+                        <span>{e.job_title || e.nickname || "—"}</span>
+                        <small>{e.employee_id}</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{e.department || "—"}</td>
+                  <td>
+                    {e.team ? (
+                      <span className="np-team-tag">{e.team}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  {hasStart && (
+                    <td className="np-nowrap">{e.start_date || "—"}</td>
+                  )}
+                  <td>
+                    <Badge value={e.employment_status} />
+                  </td>
+                  <td>
+                    {e.can_view_detail && (
+                      <Button
+                        variant="ghost"
+                        className="np-open-button"
+                        aria-label={`${u("open")}: ${e.full_name}`}
+                        onClick={() => onOpen(e.employee_id)}
+                      >
+                        {u("open")}
+                        <span aria-hidden="true">↗</span>
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+        <div className="np-register-footer">
+          <span>{!loading && `${filtered.length} ${u("employees")}`}</span>
+          <span>{u("sort")}</span>
+        </div>
+      </div>
+    </section>
   );
 }
-
-const styles = {
-  toolbar: { display: 'flex', gap: 12, marginBottom: 16 },
-  search: { flex: 1, padding: 8, fontSize: 14, border: '1px solid #ccc', borderRadius: 4 },
-  addButton: {
-    padding: '8px 16px',
-    fontSize: 14,
-    border: 'none',
-    borderRadius: 4,
-    background: '#111',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
-  th: { textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid #ddd', color: '#555' },
-  td: { padding: '8px 10px', borderBottom: '1px solid #eee' },
-  row: { cursor: 'pointer' },
-  rowDisabled: { cursor: 'default' },
-  error: { color: '#c00' },
-  cardButton: {
-    padding: '4px 10px',
-    fontSize: 12,
-    border: '1px solid #ccc',
-    borderRadius: 4,
-    background: '#fff',
-    cursor: 'pointer',
-  },
-};

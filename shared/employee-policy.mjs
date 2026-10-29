@@ -70,3 +70,8 @@ export function editableEmployeeFields(session, employeeId) {
   }
   return session?.employee_id === employeeId ? [...SELF_SERVICE_FIELDS] : [];
 }
+
+export const COMPENSATION_FIELDS = ['current_salary', 'salary_currency', 'bonus_eligible', 'bni_account_number'];
+export function canViewCompensation(session, employeeId) {
+  return PROFILE_MANAGEMENT_ROLES.includes(session?.role) || Boolean(session?.employee_id && session.employee_id === employeeId);
+}

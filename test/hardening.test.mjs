@@ -56,6 +56,16 @@ for (const role of Object.keys(actors)) {
   });
   test(role+' unauthenticated counterpart is denied',async()=>assert.equal((await requestCookie(null,'employees')).code,401));
 }
+
+for (const [role,target,allowed] of [
+ ['Administrator','employee',true],['Director','employee',true],['HR','employee',true],['Finance','employee',true],
+ ['Employee','employee',true],['Team Lead','employee',false],['Main Lead','employee',false],['Team Lead','lead',true]
+]) test(`${role} compensation projection for ${target}: ${allowed?'allowed':'omitted'}`,async()=>{
+ const res=await request(role,'employees?id='+target);
+ assert.equal(res.code,200);assert.equal(res.data.permissions.can_view_compensation,allowed);
+ for(const field of ['current_salary','salary_currency','bonus_eligible','bni_account_number'])assert.equal(Object.hasOwn(res.data.employee,field),allowed,field);
+});
+
 const viewCases=[['Employee','employee',200],['Employee','outside',403],['Team Lead','employee',200],['Main Lead','employee',200],['Team Lead','outside',403],['HR','employee',200],['HR','director',403],['Finance','admin-target',403],['Director','director',200],['Administrator','admin-target',200]];
 for(const [role,id,status]of viewCases)test(`${role} view ${id}: ${status}`,async()=>assert.equal((await request(role,'employees?id='+id)).code,status));
 for(const role of ['Team Lead','Main Lead','Employee']) {
