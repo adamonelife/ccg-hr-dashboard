@@ -137,7 +137,7 @@ function RequestForm({ employeeId, onSubmitted }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!startDate || !endDate || !reason.trim()) return;
+    if (!startDate || (!halfDay && !endDate) || !reason.trim()) return;
     setSaving(true);
     setError('');
     try {
@@ -299,7 +299,7 @@ function ManageBalances() {
   useEffect(() => {
     api
       .listEmployees()
-      .then((data) => setEmployees(data.employees || []))
+      .then((data) => setEmployees((data.employees || []).filter(emp => emp.can_view_detail)))
       .catch(() => {});
   }, []);
 

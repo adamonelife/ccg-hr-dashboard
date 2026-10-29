@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useT } from '../lib/i18n.jsx';
+import { SELF_SERVICE_FIELDS, editableEmployeeFields, SALARY_ROLES, PROMOTION_ROLES } from '../../shared/employee-policy.mjs';
 
 // Mirrors lib/permissions.mjs's FULL_VISIBILITY_ROLES and
 // lib/employees.mjs's SELF_SERVICE_FIELDS — UI-only copies (the real
@@ -9,22 +10,7 @@ import { useT } from '../lib/i18n.jsx';
 // button's behaviour/copy between "saves immediately" and "submits for
 // HR approval." Keep in sync with those two if either list ever changes.
 const FULL_VISIBILITY_ROLES = ['Administrator', 'Director', 'HR', 'Finance'];
-const SELF_SERVICE_FIELDS = [
-  'nickname',
-  'photo_url',
-  'phone',
-  'address',
-  'emergency_contact_name',
-  'emergency_contact_phone',
-  'emergency_contact_relationship',
-  'nationality',
-  'date_of_birth',
-  'religion',
-  'gender',
-  'marital_status',
-  'number_of_children',
-  'office_location',
-];
+
 
 // `titleKey`/field `labelKey`s look up translations at render time (see
 // `t(`employeeForm.section.${titleKey}`)` / `t(`employeeForm.field.${f.key}`)`
@@ -149,7 +135,8 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
   const isTrusted = FULL_VISIBILITY_ROLES.includes(session?.role);
   const selfServiceOnly = isSelfEdit && !isTrusted;
 
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState({ ...EMPTY, permission_role: 'Employee' });
+  const [editableFields, setEditableFields] = useState(isEdit ? [] : editableEmployeeFields(session, null));
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -175,7 +162,7 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
     }
     api
       .getEmployee(employeeId)
-      .then((data) => setForm({ ...EMPTY, ...data.employee }))
+      .then((data) => { setForm({ ...EMPTY, ...data.employee }); setEditableFields(data.permissions?.editable_fields || []); })
       .catch((e) => setError(t.err(e.message)))
       .finally(() => setLoading(false));
   }, [employeeId]);
@@ -219,11 +206,8 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
         // anyway (see the disabled inputs below), but send just those —
         // no reason to round-trip the rest, and it keeps the diff HR sees
         // on the change request limited to what actually changed here.
-        const payload = selfServiceOnly
-          ? Object.fromEntries(
-              Object.entries(form).filter(([k]) => k === 'employee_id' || SELF_SERVICE_FIELDS.includes(k))
-            )
-          : form;
+        const payload = Object.fromEntries(Object.entries(form)
+          .filter(([key]) => key === 'employee_id' || editableFields.includes(key)));
         const data = await api.updateEmployee(payload);
         if (data.submitted) {
           setSubmittedMsg(t('employeeForm.submittedMsg'));
@@ -232,7 +216,7 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
           return;
         }
       } else {
-        await api.createEmployee(form);
+        await api.createEmployee(session?.role === 'Administrator' ? form : { ...form, permission_role: 'Employee' });
       }
       onSaved();
     } catch (err) {
@@ -265,7 +249,7 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
         {t('employeeForm.backToDirectory')}
       </button>
       <h2>{isEdit ? form.full_name || t('employeeForm.editEmployee') : t('employeeForm.addEmployee')}</h2>
-      {isEdit && !selfServiceOnly && (
+      {isEdit && session?.role === 'Administrator' && (
         <button onClick={handleDelete} disabled={deleting} style={styles.deleteButton}>
           {deleting ? t('employeeForm.deleting') : t('employeeForm.deleteEmployee')}
         </button>
@@ -300,7 +284,7 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
                   currentValue && !baseOptions.includes(currentValue)
                     ? [currentValue, ...baseOptions]
                     : baseOptions;
-                const locked = (isEdit && f.lockOnEdit) || (selfServiceOnly && !SELF_SERVICE_FIELDS.includes(f.key));
+                const locked = (isEdit && (f.lockOnEdit || !editableFields.includes(f.key))) || (!isEdit && f.key === 'permission_role' && session?.role !== 'Administrator');
                 const label = t(`employeeForm.field.${f.key}`);
 
                 return (
@@ -349,7 +333,7 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
 
         {error && <p style={styles.error}>{error}</p>}
 
-        <button type="submit" disabled={saving} style={styles.submit}>
+        {(!isEdit || editableFields.length > 0) && <button type="submit" disabled={saving} style={styles.submit}>
           {saving
             ? t('common.saving')
             : isEdit
@@ -357,13 +341,13 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
                 ? t('employeeForm.requestChange')
                 : t('employeeForm.saveChanges')
               : t('employeeForm.createEmployee')}
-        </button>
+        </button>}
       </form>
 
       {isEdit && !selfServiceOnly && (
         <>
-          <AccountPanel employeeId={employeeId} defaultEmail={form.email} t={t} />
-          <HistoryPanel
+          {session?.role === 'Administrator' && <AccountPanel employeeId={employeeId} defaultEmail={form.email} t={t} />}
+          {SALARY_ROLES.includes(session?.role) && <HistoryPanel
             title={t('employeeForm.salaryHistory')}
             employeeId={employeeId}
             fetcher={api.salaryHistory}
@@ -375,8 +359,8 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
               { key: 'currency', label: t('employeeForm.currency') },
               { key: 'reason', label: t('employeeForm.reason') },
             ]}
-          />
-          <HistoryPanel
+          />}
+          {PROMOTION_ROLES.includes(session?.role) && <HistoryPanel
             title={t('employeeForm.promotionHistory')}
             employeeId={employeeId}
             fetcher={api.promotionHistory}
@@ -388,7 +372,7 @@ export default function EmployeeForm({ employeeId, session, onSaved, onCancel })
               { key: 'new_title', label: t('employeeForm.newTitle') },
               { key: 'notes', label: t('common.notes') },
             ]}
-          />
+          />}
         </>
       )}
     </div>

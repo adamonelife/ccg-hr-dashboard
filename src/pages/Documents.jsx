@@ -77,7 +77,7 @@ function EmployeeDocuments({ role }) {
   // the backend would 403 on them anyway (lib/documents.mjs's
   // canViewPersonalDocs), so there's nothing to usefully pick them for.
   const pickable = RESTRICTED_VIEWER_ROLES.includes(role)
-    ? employees.filter((emp) => !RESTRICTED_TARGET_ROLES.includes(emp.permission_role))
+    ? employees.filter((emp) => emp.can_view_detail)
     : employees;
 
   return (

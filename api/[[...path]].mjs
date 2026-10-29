@@ -95,9 +95,8 @@ const routes = {
   // Phase 2 — Documents (personal + company, built together). Both
   // requireAuth, not requireRole — same reasoning as skills/org-units/
   // leave: visibility and mutate-rights are per-row/per-role checks inside
-  // lib/documents.mjs itself, not a flat route-level gate. Both tables are
-  // created defensively (CREATE TABLE IF NOT EXISTS) the first time
-  // they're queried, so no separate migration visit is needed.
+  // lib/documents.mjs itself, not a flat route-level gate. Schema is
+  // installed explicitly; normal requests never perform schema setup.
   documents: requireAuth(handlePersonalDocuments),
   'company-documents': requireAuth(handleCompanyDocuments),
 

@@ -9,12 +9,6 @@ import { useT } from '../lib/i18n.jsx';
 // that's actually enforced lives server-side in lib/permissions.mjs and
 // lib/employees.mjs.
 const CAN_SEE_CARD_AND_SENSITIVE_COLUMNS = ['Administrator', 'Director', 'HR', 'Finance'];
-// Of the roles above, these two have the Director/Administrator exclusion
-// — used per-row below to hide the "View card" button/row-click for
-// exactly the rows the backend would 403 on anyway (canView), rather than
-// showing a dead-end control.
-const RESTRICTED_VIEWER_ROLES = ['HR', 'Finance'];
-const RESTRICTED_TARGET_ROLES = ['Director', 'Administrator'];
 const CAN_ADD_EMPLOYEE = ['Administrator', 'Director', 'HR', 'Finance'];
 
 export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
@@ -26,7 +20,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
 
   const showSensitive = CAN_SEE_CARD_AND_SENSITIVE_COLUMNS.includes(role);
   const showAdd = CAN_ADD_EMPLOYEE.includes(role);
-  const viewerIsRestricted = RESTRICTED_VIEWER_ROLES.includes(role);
+  const showCards = employees.some(e => e.can_view_detail);
 
   useEffect(() => {
     load();
@@ -51,7 +45,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
       .includes(q);
   });
 
-  const columnCount = 6 + (showSensitive ? 3 : 0); // Name, Nickname, Job title, Department, Team, Status [+ Employee ID, Start date, card button]
+  const columnCount = 6 + (showSensitive ? 2 : 0) + (showCards ? 1 : 0); // Name, Nickname, Job title, Department, Team, Status [+ Employee ID, Start date, card button]
 
   return (
     <div>
@@ -84,7 +78,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
               <th style={styles.th}>{t('directory.team')}</th>
               <th style={styles.th}>{t('directory.status')}</th>
               {showSensitive && <th style={styles.th}>{t('directory.startDate')}</th>}
-              {showSensitive && <th style={styles.th}></th>}
+              {showCards && <th style={styles.th}></th>}
             </tr>
           </thead>
           <tbody>
@@ -93,7 +87,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
               // 403 server-side anyway) — still show the name/title/dept
               // like any other row (that's just "who works here"), just
               // don't offer a drill-down that would only dead-end.
-              const rowRestricted = viewerIsRestricted && RESTRICTED_TARGET_ROLES.includes(e.permission_role);
+              const rowRestricted = !e.can_view_detail;
               return (
                 <tr
                   key={e.employee_id}
@@ -108,7 +102,7 @@ export default function Directory({ role, onOpen, onOpenCard, onAdd }) {
                   <td style={styles.td}>{e.team}</td>
                   <td style={styles.td}>{e.employment_status}</td>
                   {showSensitive && <td style={styles.td}>{e.start_date}</td>}
-                  {showSensitive && (
+                  {showCards && (
                     <td style={styles.td}>
                       {!rowRestricted && (
                         <button
