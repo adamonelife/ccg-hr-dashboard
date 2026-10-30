@@ -1,3 +1,4 @@
+import { visibleNickname } from "../lib/employee-identity.js";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useT } from "../lib/i18n.jsx";
@@ -230,7 +231,14 @@ export default function EmployeeCard({
             <div>
               <p className="np-eyebrow">{employee.employee_id}</p>
               <h1>{employee.full_name}</h1>
-              <p>{employee.job_title || employee.nickname || "—"}</p>
+              {visibleNickname(employee) && (
+                <p className="np-profile-nickname">
+                  {visibleNickname(employee)}
+                </p>
+              )}
+              {employee.job_title && (
+                <p className="np-profile-title">{employee.job_title}</p>
+              )}
               <div className="np-profile-meta">
                 <Badge value={employee.employment_status} />
                 <span>
@@ -306,7 +314,9 @@ export default function EmployeeCard({
           ))}
         </div>
         <div
-          className="np-profile-panel"
+          className={
+            tab === "skills" ? "np-profile-content" : "np-profile-panel"
+          }
           id={`profile-panel-${tab}`}
           role="tabpanel"
           aria-labelledby={`profile-tab-${tab}`}
@@ -350,6 +360,7 @@ export default function EmployeeCard({
                 <>
                   {SALARY_ROLES.includes(session.role) && (
                     <HistoryPanel
+                      embedded
                       title={t("employeeForm.salaryHistory")}
                       employeeId={employeeId}
                       fetcher={api.salaryHistory}
@@ -379,6 +390,7 @@ export default function EmployeeCard({
                   )}
                   {PROMOTION_ROLES.includes(session.role) && (
                     <HistoryPanel
+                      embedded
                       title={t("employeeForm.promotionHistory")}
                       employeeId={employeeId}
                       fetcher={api.promotionHistory}

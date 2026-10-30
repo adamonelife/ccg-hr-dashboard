@@ -101,7 +101,7 @@ export default function OrgChart({ role }) {
 
         <h2
           style={{
-            marginTop: 32,
+            marginTop: "var(--space-32)",
           }}
         >
           {t("orgChart.reportingLines")}
@@ -230,7 +230,7 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged, t }) {
       <div
         style={{
           marginLeft: depth * 24,
-          marginBottom: 8,
+          marginBottom: "var(--space-8)",
         }}
       >
         <div className="np-tree-row">

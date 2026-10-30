@@ -159,4 +159,42 @@ test('Former employees keep neutral status badges',async()=>{
  const tree=await render(React.createElement('div',null,React.createElement(Badge,{value:'Resigned'}),React.createElement(Badge,{value:'Terminated'})));
  assert.equal(tree.root.findAllByType('span').filter(x=>x.props.className==='np-badge np-badge-neutral').length,2);await act(async()=>tree.unmount());
 });
+test('Directory shows full name, useful stored nickname, title and ID, and searches nickname locally',async()=>{
+ const session={role:'HR',employee_id:'hr'};apiFixture(session);
+ const people=[{employee_id:'CCG-048',full_name:'A. A. Bagus Surya Arwidana',nickname:'Ajus',job_title:'Senior Architect',can_view_detail:true},{employee_id:'CCG-999',full_name:'No Stored Nickname',nickname:null,job_title:'Coordinator',can_view_detail:true},{employee_id:'CCG-998',full_name:'Only Recorded Name',nickname:'   ',job_title:'',can_view_detail:true}];
+ globalThis.fetch=async(url)=>{calls.push({url});return{ok:true,json:async()=>({employees:people})};};
+ const tree=await render(React.createElement(Directory,{role:'HR',onOpen(){},onAdd(){}}));
+ const rows=tree.root.findAllByType('tr').slice(1);for(const value of ['A. A. Bagus Surya Arwidana','Ajus','Senior Architect','CCG-048'])assert(text(rows[0]).includes(value),value);
+ assert.equal(rows[1].findAllByProps({className:'np-nickname'}).length,0);assert.equal(rows[2].findAllByProps({className:'np-identity-line'}).length,0);assert(!text(rows[2].findAllByType('td')[0]).includes('—'));
+ const count=calls.length;await act(async()=>tree.root.findAllByType('input')[0].props.onChange({target:{value:'Ajus'}}));
+ assert.equal(tree.root.findAllByType('tr').length,2);assert(text(tree.toJSON()).includes('CCG-048'));assert.equal(calls.length,count,'search must not expand the payload or refetch detail');
+ assert(calls.every(c=>c.url==='/api/employees'));await act(async()=>tree.unmount());
+});
+test('Nickname display uses only stored values and cleanly omits blanks or duplicate full names',async()=>{
+ const {visibleNickname}=await import('../src/lib/employee-identity.js');
+ for(const nickname of [undefined,null,'','   '])assert.equal(visibleNickname({full_name:'Legal Name',nickname,email:'alias@example.invalid'}),null);
+ assert.equal(visibleNickname({full_name:'Legal Name',nickname:' legal name '}),null);
+ assert.equal(visibleNickname({full_name:'Legal Name',nickname:'  Ajus  '}),'Ajus');
+ assert.equal(visibleNickname({full_name:'Ajus Legal',email:'ajus@example.invalid'}),null);
+});
+test('Employee profile header shows stored nickname alongside full name and job title',async()=>{
+ const session={role:'Employee',employee_id:'employee'};apiFixture(session);
+ globalThis.fetch=async()=>({ok:true,json:async()=>({employee:{employee_id:'employee',full_name:'Recorded Full Name',nickname:'Ajus',job_title:'Senior Architect'},permissions:{editable_fields:[],can_view_compensation:false}})});
+ const tree=await render(React.createElement(EmployeeCard,{employeeId:'employee',session,onBack(){},onEdit(){}}));
+ const header=tree.root.findByProps({className:'np-profile-person'});for(const value of ['Recorded Full Name','Ajus','Senior Architect'])assert(text(header).includes(value));
+ assert.equal(header.findByProps({className:'np-profile-nickname'}).children[0],'Ajus');await act(async()=>tree.unmount());
+});
+test('Canonical Button resolves exactly one variant for legacy and explicit controls',async()=>{
+ const tree=await render(React.createElement('div',null,React.createElement(Button,{className:'np-button-secondary np-button-small'},'Secondary'),React.createElement(Button,{className:'np-button-danger-soft'},'Delete'),React.createElement(Button,{variant:'ghost',className:'np-button-primary'},'Back')));
+ const buttons=tree.root.findAllByType('button');
+ assert(buttons[0].props.className.includes('np-button-secondary'));assert(!buttons[0].props.className.includes('np-button-primary'));
+ assert(buttons[1].props.className.includes('np-button-danger'));assert(!buttons[1].props.className.includes('np-button-primary'));
+ assert(buttons[2].props.className.includes('np-button-ghost'));assert(!buttons[2].props.className.includes('np-button-primary'));
+ await act(async()=>tree.unmount());
+});
+test('Primary text and canonical spacing follow the amendment; profile and setup avoid outer nested cards',async()=>{
+ const css=(await readFile('src/index.css','utf8')).toLowerCase();assert.match(css,/--people-on-primary:\s*#ffffff/);
+ for(const n of [4,8,12,16,20,24,32])assert(css.includes('--space-'+n+':'),String(n));
+ const card=await readFile('src/pages/EmployeeCard.jsx','utf8'),setup=await readFile('src/pages/Setup.jsx','utf8');assert(card.includes('np-profile-content'));assert(setup.includes('np-setup-content'));
+});
 after(async()=>{await rm(temp,{recursive:true,force:true});});

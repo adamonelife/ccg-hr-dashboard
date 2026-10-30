@@ -108,7 +108,7 @@ function MyLeave({ employeeId }) {
 
             <h4
               style={{
-                marginTop: 20,
+                marginTop: "var(--space-20)",
               }}
             >
               {t("leave.myRequests")}
@@ -199,7 +199,7 @@ function RequestForm({ employeeId, onSubmitted }) {
       <form
         onSubmit={handleSubmit}
         style={{
-          marginTop: 16,
+          marginTop: "var(--space-16)",
         }}
         className="np-inline-form"
       >
@@ -478,7 +478,7 @@ function ManageBalances() {
         {employeeId && (
           <Table
             style={{
-              marginTop: 12,
+              marginTop: "var(--space-12)",
             }}
             className="np-table"
           >

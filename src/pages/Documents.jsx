@@ -200,7 +200,7 @@ function DocumentsPanel({ employeeId }) {
     <>
       <div
         style={{
-          marginTop: 10,
+          marginTop: "var(--space-8)",
         }}
       >
         {loading && <Loading />}
@@ -320,7 +320,7 @@ function AddDocumentForm({ employeeId, onAdded }) {
       <form
         onSubmit={handleSubmit}
         style={{
-          marginTop: 10,
+          marginTop: "var(--space-8)",
         }}
         className="np-inline-form"
       >
@@ -453,12 +453,12 @@ function CompanyDocuments({ canUpload }) {
             <div
               key={folder}
               style={{
-                marginBottom: 16,
+                marginBottom: "var(--space-16)",
               }}
             >
               <h4
                 style={{
-                  marginBottom: 4,
+                  marginBottom: "var(--space-4)",
                 }}
               >
                 {folder}
@@ -570,7 +570,7 @@ function AddCompanyDocumentForm({ onAdded }) {
     <>
       <div
         style={{
-          marginTop: 12,
+          marginTop: "var(--space-12)",
         }}
       >
         <p className="np-muted">
