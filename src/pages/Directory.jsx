@@ -1,3 +1,4 @@
+import { visibleNickname } from "../lib/employee-identity.js";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api.js";
 import { useT } from "../lib/i18n.jsx";
@@ -195,7 +196,17 @@ export default function Directory({
                       </span>
                       <div>
                         <strong>{e.full_name}</strong>
-                        <span>{e.job_title || e.nickname || "—"}</span>
+                        {(visibleNickname(e) || e.job_title) && (
+                          <span className="np-identity-line">
+                            {visibleNickname(e) && (
+                              <b className="np-nickname">
+                                {visibleNickname(e)}
+                              </b>
+                            )}
+                            {visibleNickname(e) && e.job_title && " · "}
+                            {e.job_title}
+                          </span>
+                        )}
                         <small>{e.employee_id}</small>
                       </div>
                     </div>

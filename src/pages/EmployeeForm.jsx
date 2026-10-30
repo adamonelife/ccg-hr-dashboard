@@ -812,7 +812,7 @@ export function AccountPanel({ employeeId, defaultEmail, t }) {
         {link && (
           <div
             style={{
-              marginTop: 8,
+              marginTop: "var(--space-8)",
             }}
           >
             <p
@@ -840,6 +840,7 @@ export function AccountPanel({ employeeId, defaultEmail, t }) {
   );
 }
 export function HistoryPanel({
+  embedded = false,
   title,
   employeeId,
   fetcher,
@@ -885,7 +886,7 @@ export function HistoryPanel({
   }
   return (
     <>
-      <div className="np-panel">
+      <div className={embedded ? "np-subsection" : "np-panel"}>
         <h3>{title}</h3>
         {error && (
           <p className="np-feedback np-feedback-error" role="alert">

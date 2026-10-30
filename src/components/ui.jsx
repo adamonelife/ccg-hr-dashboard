@@ -8,16 +8,19 @@ import {
   useState,
 } from "react";
 import { useUI } from "../lib/presentation.jsx";
-export function Button({
-  variant = "primary",
-  className = "",
-  type = "button",
-  ...props
-}) {
+export function Button({ variant, className = "", type = "button", ...props }) {
+  // Resolve the legacy presentation class at this boundary so a control
+  // has one variant, including hover/disabled states, rather than two skins.
+  const variantPattern =
+    /(?:^|\s)np-button-(primary|secondary|ghost|danger-soft|danger)(?=\s|$)/g;
+  const legacy = [...className.matchAll(variantPattern)].at(-1)?.[1];
+  const resolved =
+    variant || (legacy === "danger-soft" ? "danger" : legacy) || "primary";
+  const extraClasses = className.replace(variantPattern, " ").trim();
   return (
     <button
       type={type}
-      className={`np-button np-button-${variant} ${className}`}
+      className={`np-button np-button-${resolved} ${extraClasses}`}
       {...props}
     />
   );

@@ -192,7 +192,7 @@ export default function Setup({ employeeId, onFinished }) {
   return (
     <>
       <div className="np-setup-page">
-        <div className="np-card">
+        <div className="np-setup-content">
           <div className="np-auth-logo">
             <Logo height={58} />
           </div>
@@ -269,31 +269,30 @@ export default function Setup({ employeeId, onFinished }) {
             </div>
           </form>
 
-          <div className="np-section">
-            <DesignDisciplinePanel
-              employeeId={employeeId}
-              skills={skills}
-              onChanged={load}
-            />
+          <DesignDisciplinePanel
+            employeeId={employeeId}
+            skills={skills}
+            onChanged={load}
+          />
+
+          <div className="np-skill-categories">
+            {CATEGORIES.map((cat) => (
+              <div key={cat} className="np-section">
+                <h3 className="np-section-title">
+                  {t(`employeeCard.category.${cat}`)}
+                </h3>
+                {byCategory[cat]?.length > 0 ? (
+                  <ul className="np-skill-list">
+                    {byCategory[cat].map((s) => (
+                      <SkillRow key={s.id} entry={s} onChanged={load} />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="np-empty-text">{t("employeeCard.none")}</p>
+                )}
+              </div>
+            ))}
           </div>
-
-          {CATEGORIES.map((cat) => (
-            <div key={cat} className="np-section">
-              <h3 className="np-section-title">
-                {t(`employeeCard.category.${cat}`)}
-              </h3>
-              {byCategory[cat]?.length > 0 ? (
-                <ul className="np-skill-list">
-                  {byCategory[cat].map((s) => (
-                    <SkillRow key={s.id} entry={s} onChanged={load} />
-                  ))}
-                </ul>
-              ) : (
-                <p className="np-empty-text">{t("employeeCard.none")}</p>
-              )}
-            </div>
-          ))}
-
           <AddSkillForm employeeId={employeeId} onAdded={load} />
 
           <div className="np-finish-row">
