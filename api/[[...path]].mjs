@@ -19,6 +19,7 @@
 // go in RAW_BODY_ROUTES and get req.rawBody instead of req.body.
 
 import { handleHealth } from '../lib/health.mjs';
+import { handleStaffCost } from '../lib/staff-cost.mjs';
 import { handleLogin, handleLogout, handleMe, handleSetPassword, requireAuth, requireRole } from '../lib/auth.mjs';
 import { handleEmployees } from '../lib/employees.mjs';
 import { handleOrgChart, handleOrgUnits } from '../lib/org.mjs';
@@ -46,6 +47,7 @@ const RAW_BODY_ROUTES = new Set([]);
 // health/auth/login should be wrapped once real HR data is involved.
 const routes = {
   health: handleHealth,
+  'integrations/operations/staff-cost': handleStaffCost,
   'auth/login': handleLogin,
   'auth/logout': handleLogout,
   'auth/me': handleMe,
