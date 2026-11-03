@@ -5,7 +5,7 @@ GET /api/integrations/operations/staff-cost retains its existing service-only Be
 The response is schemaVersion: 2 and grouping: "People Department ID".
 The existing organisationUnits array remains the group envelope to reduce consumer changes. Each group has:
 
-- departmentId: stable departments.id (landscape, archviz, interactive, pelago, marketing, sales, management, office), or null for Unassigned.
+- departmentId: stable departments.id (landscape, archviz, interactive, pelago, marketing, sales, management, office, tiny_villas), or null for Unassigned.
 - departmentName: registry display name, or "Unassigned".
 - unit: compatibility field equal to departmentId; it is no longer a Team display name.
 - Existing headcount, salary completeness, per-currency amounts and averages.
