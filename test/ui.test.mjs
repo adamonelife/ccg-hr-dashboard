@@ -96,10 +96,10 @@ test('Read profile loads primary data before secondary sections and respects com
 test('Management compensation is separate from overview and history loads only on request',async()=>{
  const session={role:'HR',employee_id:'hr'};apiFixture(session);
  const tree=await render(React.createElement(EmployeeCard,{employeeId:'employee',session,onBack(){},onEdit(){}}));
- assert(!calls.some(c=>c.url.includes('history')));assert(!text(tree.toJSON()).includes('Current salary'));
+ assert(!calls.some(c=>c.url.includes('history')));assert(!text(tree.toJSON()).includes('Current gross monthly salary'));
  const tab=tree.root.findAllByProps({role:'tab'}).find(b=>text(b)==='Compensation & history');
  await act(async()=>tab.props.onClick());assert(calls.some(c=>c.url.startsWith('/api/salary-history')));
- assert(text(tree.toJSON()).includes('Current salary'));await act(async()=>tree.unmount());
+ assert(text(tree.toJSON()).includes('Current gross monthly salary'));await act(async()=>tree.unmount());
 });
 test('Edit reports dirty changes and returns saved employee identity',async()=>{
  const session={role:'Administrator',employee_id:null};apiFixture(session);let dirty=false,saved;
