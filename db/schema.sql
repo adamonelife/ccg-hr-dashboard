@@ -399,6 +399,14 @@ CREATE TABLE public.departments (
 ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
 -- Access remains through the authenticated People server, not the Supabase Data API.
 REVOKE ALL ON public.departments FROM PUBLIC;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL ON public.departments FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON public.departments FROM authenticated;
+  END IF;
+END $$;
 INSERT INTO public.departments (id, name, sort_order) VALUES
  ('landscape','Landscape',1), ('archviz','ArchViz',2),
  ('interactive','Interactive',3), ('pelago','Pelago',4),
