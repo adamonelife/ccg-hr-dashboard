@@ -1,3 +1,4 @@
+import { departmentName } from "../../shared/departments.mjs";
 import { visibleNickname } from "../lib/employee-identity.js";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
@@ -160,7 +161,7 @@ export default function EmployeeCard({
       "full_name",
       "nickname",
       "job_title",
-      "department",
+      "department_id",
       "team",
       "company",
       "manager_id",
@@ -183,6 +184,11 @@ export default function EmployeeCard({
       "emergency_contact_relationship",
     ],
     employment: [
+      "company",
+      "department_id",
+      "department",
+      "team",
+      "manager_id",
       "employment_status",
       "start_date",
       "end_date",
@@ -242,7 +248,7 @@ export default function EmployeeCard({
               <div className="np-profile-meta">
                 <Badge value={employee.employment_status} />
                 <span>
-                  {[employee.department, employee.team]
+                  {[departmentName(employee.department_id), employee.team]
                     .filter(Boolean)
                     .join(" / ")}
                 </span>
@@ -339,7 +345,9 @@ export default function EmployeeCard({
                     <div key={key}>
                       <dt>{t(`employeeForm.field.${key}`)}</dt>
                       <dd>
-                        {key === "employment_status" ? (
+                        {key === "department_id" ? (
+                          departmentName(employee[key]) || u("unassigned")
+                        ) : key === "employment_status" ? (
                           <Badge value={employee[key]} />
                         ) : key === "bonus_eligible" ? (
                           employee[key] === "TRUE" ? (

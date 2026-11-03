@@ -198,3 +198,26 @@ test('Primary text and canonical spacing follow the amendment; profile and setup
  const card=await readFile('src/pages/EmployeeCard.jsx','utf8'),setup=await readFile('src/pages/Setup.jsx','utf8');assert(card.includes('np-profile-content'));assert(setup.includes('np-setup-content'));
 });
 after(async()=>{await rm(temp,{recursive:true,force:true});});
+
+test('Directory Department filter includes fixed registry and Unassigned without hiding identity',async()=>{
+ apiFixture({role:'HR'});
+ globalThis.fetch=async()=>({ok:true,json:async()=>({employees:[{employee_id:'CCG-001',full_name:'One',nickname:'Ajus',job_title:'Architect',team:'Team A',department_id:'landscape'},{employee_id:'CCG-002',full_name:'Two',team:'Team B',department_id:null}]})});
+ const tree=await render(React.createElement(Directory,{role:'HR',onOpen(){},onAdd(){}}));
+ const select=tree.root.findAllByType('select')[0];
+ for(const label of ['All Departments','Unassigned','Landscape','ArchViz','Interactive','Pelago','Marketing','Sales','Management'])assert(text(select).includes(label));
+ await act(async()=>select.props.onChange({target:{value:'unassigned'}}));
+ assert(!text(tree.toJSON()).includes('CCG-001'));assert(text(tree.toJSON()).includes('CCG-002'));
+ await act(async()=>select.props.onChange({target:{value:'landscape'}}));
+ for(const label of ['CCG-001','Ajus','Architect','Team A','Landscape'])assert(text(tree.toJSON()).includes(label));
+ assert(!text(tree.toJSON()).includes('CCG-002'));await act(async()=>tree.unmount());
+});
+test('Employee Department select is independent of legacy org department and Team',async()=>{
+ for(const role of ['HR','Employee']) {
+  apiFixture({role,employee_id:role==='Employee'?'employee':'hr'});
+  const tree=await render(React.createElement(EmployeeForm,{employeeId:'employee',session:{role,employee_id:role==='Employee'?'employee':'hr'},onSaved(){},onCancel(){}}));
+  const label=tree.root.findAllByType('label').find(l=>text(l).startsWith('Department'));
+  const select=label.findByType('select');assert.equal(select.props.disabled,role==='Employee');
+  assert(text(select).includes('Unassigned'));assert(text(select).includes('ArchViz'));
+  await act(async()=>tree.unmount());
+ }
+});

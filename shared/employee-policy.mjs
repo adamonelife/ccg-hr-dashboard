@@ -22,6 +22,7 @@ export const EMPLOYEE_FIELDS = [
   'end_date',
   'company',
   'department',
+  'department_id',
   'job_title',
   'team',
   'manager_id',

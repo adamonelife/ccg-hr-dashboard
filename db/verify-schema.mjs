@@ -5,6 +5,7 @@ import { EMPLOYEE_FIELDS } from '../shared/employee-policy.mjs';
 export async function verifySchema(sql) {
   const required = {
     employees: [...EMPLOYEE_FIELDS, 'profile_setup_completed_at', 'created_at', 'updated_at'],
+    departments: ['id','name','sort_order'],
     org_units: ['unit_name','unit_type','parent_unit_name','lead_employee_id','sort_order'],
     skills: ['id','employee_id','category','item','level','notes','added_at'],
     documents: ['id','employee_id','document_type','drive_file_id','drive_link','expiry_date','notes','uploaded_by','uploaded_at'],

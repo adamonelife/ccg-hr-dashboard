@@ -1,3 +1,4 @@
+import { DEPARTMENTS, departmentName } from "../../shared/departments.mjs";
 import { visibleNickname } from "../lib/employee-identity.js";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api.js";
@@ -43,9 +44,7 @@ export default function Directory({
       .finally(() => setLoading(false));
   }
   useEffect(load, [includeInactive, refreshKey]);
-  const departments = [
-      ...new Set(employees.map((e) => e.department).filter(Boolean)),
-    ].sort(),
+  const departments = DEPARTMENTS,
     teams = [...new Set(employees.map((e) => e.team).filter(Boolean))].sort();
   const filtered = useMemo(
     () =>
@@ -59,14 +58,14 @@ export default function Directory({
               e.full_name,
               e.nickname,
               e.employee_id,
-              e.department,
+              departmentName(e.department_id),
               e.team,
               e.job_title,
             ]
               .join(" ")
               .toLowerCase()
               .includes(query.toLowerCase())) &&
-          (!department || e.department === department) &&
+          (!department || (department === "unassigned" ? !e.department_id : e.department_id === department)) &&
           (!team || e.team === team) &&
           (status === "all" || (status === "inactive" ? inactive : !inactive))
         );
@@ -117,9 +116,10 @@ export default function Directory({
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
             >
-              <option value="">{u("all")}</option>
+              <option value="">{u("allDepartments")}</option>
+              <option value="unassigned">{u("unassigned")}</option>
               {departments.map((d) => (
-                <option key={d}>{d}</option>
+                <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </Select>
           </label>
@@ -211,7 +211,7 @@ export default function Directory({
                       </div>
                     </div>
                   </td>
-                  <td>{e.department || "—"}</td>
+                  <td>{departmentName(e.department_id) || u("unassigned")}</td>
                   <td>
                     {e.team ? (
                       <span className="np-team-tag">{e.team}</span>
