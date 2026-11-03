@@ -1,0 +1,11 @@
+{
+  "source": "https://nallin-client.vercel.app/brand/nallin/favicon-32x32.png",
+  "sourceSha256": "edb3e090c88ba503d7c67a6d56b46eaec6da5f70fc0d621e6abc22c8ec916577",
+  "alphaSha256": "39deb59ed96c5effb389fe013abc07c40dc664e9dc2f00da49f7ab76dec336ba",
+  "dimensions": [
+    32,
+    32
+  ],
+  "paint": "#8B5CF6",
+  "method": "RGB replacement only; alpha, dimensions, position and silhouette unchanged"
+}
