@@ -50,11 +50,11 @@ test('Department IDs are independent of Team and display names; Unassigned is ex
 });
 test('Authorised feed reads stored Department assignment and never queries Organisation',async()=>{
  process.env.OPERATIONS_STAFF_COST_TOKEN='synthetic-test-token-not-production-123456';process.env.VERCEL_ENV='production';
- await database.exec("UPDATE employees SET department_id='management' WHERE employee_id='one'");
+ await database.exec("UPDATE employees SET department_id='office' WHERE employee_id='one'");
  const n=queries.length,res=response();
  await handleStaffCost({method:'GET',headers:{authorization:'Bearer '+process.env.OPERATIONS_STAFF_COST_TOKEN,'x-nallin-environment':'production'}},res);
- assert.equal(res.code,200);assert.equal(res.data.organisationUnits[0].departmentId,'management');
- assert.equal(res.data.organisationUnits[0].departmentName,'Management');
+ assert.equal(res.code,200);assert.equal(res.data.organisationUnits[0].departmentId,'office');
+ assert.equal(res.data.organisationUnits[0].departmentName,'Office');
  assert.equal(res.data.organisationUnits[0].currencies[0].knownMonthlyGrossSalary,1000000);
  assert(queries.slice(n).every(q=>/^SELECT/.test(q)));
  assert(!queries.slice(n).some(q=>/org_units|\bteam\b/.test(q)));
