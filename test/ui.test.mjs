@@ -204,7 +204,7 @@ test('Directory Department filter includes fixed registry and Unassigned without
  globalThis.fetch=async()=>({ok:true,json:async()=>({employees:[{employee_id:'CCG-001',full_name:'One',nickname:'Ajus',job_title:'Architect',team:'Team A',department_id:'landscape'},{employee_id:'CCG-002',full_name:'Two',team:'Team B',department_id:null}]})});
  const tree=await render(React.createElement(Directory,{role:'HR',onOpen(){},onAdd(){}}));
  const select=tree.root.findAllByType('select')[0];
- for(const label of ['All Departments','Unassigned','Landscape','ArchViz','Interactive','Pelago','Marketing','Sales','Management','Office'])assert(text(select).includes(label));
+ for(const label of ['All Departments','Unassigned','Landscape','ArchViz','Interactive','Pelago','Marketing','Sales','Management','Office','Tiny Villas'])assert(text(select).includes(label));
  await act(async()=>select.props.onChange({target:{value:'unassigned'}}));
  assert(!text(tree.toJSON()).includes('CCG-001'));assert(text(tree.toJSON()).includes('CCG-002'));
  await act(async()=>select.props.onChange({target:{value:'landscape'}}));

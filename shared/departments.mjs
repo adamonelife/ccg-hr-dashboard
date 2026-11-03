@@ -9,5 +9,6 @@ export const DEPARTMENTS = [
   { id: 'sales', name: 'Sales' },
   { id: 'management', name: 'Management' },
   { id: 'office', name: 'Office' },
+  { id: 'tiny_villas', name: 'Tiny Villas' },
 ];
 export const departmentName = id => DEPARTMENTS.find(d => d.id === id)?.name || null;

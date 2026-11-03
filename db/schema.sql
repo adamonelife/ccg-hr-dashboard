@@ -410,7 +410,7 @@ END $$;
 INSERT INTO public.departments (id, name, sort_order) VALUES
  ('landscape','Landscape',1), ('archviz','ArchViz',2),
  ('interactive','Interactive',3), ('pelago','Pelago',4),
- ('marketing','Marketing',5), ('sales','Sales',6), ('management','Management',7), ('office','Office',8);
+ ('marketing','Marketing',5), ('sales','Sales',6), ('management','Management',7), ('office','Office',8), ('tiny_villas','Tiny Villas',9);
 ALTER TABLE public.employees ADD COLUMN department_id TEXT
  REFERENCES public.departments(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 CREATE INDEX idx_employees_department_id ON public.employees(department_id);
