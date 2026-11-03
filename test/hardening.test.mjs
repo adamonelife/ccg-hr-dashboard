@@ -220,7 +220,7 @@ test('Organisation, Leave, Documents, Skills and review screens retain their rea
  }
 });
 
-test('Independent Department registry has exactly seven stable IDs; existing staff remain unassigned',async()=>{
+test('Independent Department registry has exactly eight stable IDs; existing staff remain unassigned',async()=>{
  const rows=(await database.query('SELECT id,name FROM departments ORDER BY sort_order')).rows;
  const {DEPARTMENTS}=await import('../shared/departments.mjs');assert.deepEqual(rows,DEPARTMENTS);
  assert.equal((await value('SELECT count(*)::int AS n FROM employees WHERE department_id IS NOT NULL')).n,0);
@@ -230,7 +230,7 @@ test('Department assignment and clearing preserve org tree, lead scope, reportin
  const units=(await request('Administrator','org-units')).data;
  const scope=(await request('Team Lead','employees?id=employee')).code;
  const employee=await value("SELECT department,team,manager_id,current_salary FROM employees WHERE employee_id='employee'");
- for(const id of ['landscape','management',null]) {
+ for(const id of ['landscape','management','office',null]) {
    const res=await request('HR','employees','PATCH',{employee_id:'employee',department_id:id});
    assert.equal(res.code,200);assert.equal(res.data.employee.department_id,id);
    assert.deepEqual((await request('Administrator','org-chart')).data,before);
