@@ -10,6 +10,7 @@ import {
   Feedback,
   useFeedback,
 } from "../components/ui.jsx";
+import { DEPARTMENTS } from "../../shared/departments.mjs";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useT } from "../lib/i18n.jsx";
@@ -150,6 +151,11 @@ const SECTIONS = [
     fields: [
       {
         key: "company",
+      },
+      {
+        key: "department_id",
+        type: "select",
+        options: DEPARTMENTS.map(d => d.id),
       },
       {
         key: "department",
@@ -551,10 +557,10 @@ export default function EmployeeForm({
                             required={f.required}
                             className="np-input"
                           >
-                            <option value="">—</option>
+                            <option value="">{f.key === "department_id" ? u("unassigned") : "—"}</option>
                             {selectOptions.map((opt) => (
                               <option key={opt} value={opt}>
-                                {opt}
+                                {f.key === "department_id" ? DEPARTMENTS.find(d => d.id === opt)?.name || opt : opt}
                               </option>
                             ))}
                           </Select>

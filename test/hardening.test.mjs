@@ -50,7 +50,7 @@ after(async()=>{await database.close();});
 for (const role of Object.keys(actors)) {
   test(role+' Directory uses only summary fields',async()=>{
     const r=await request(role,'employees');assert.equal(r.code,200,JSON.stringify(r.data));
-    const allowed=['employee_id','full_name','nickname','job_title','department','team','employment_status','can_view_detail',...(['Administrator','Director','HR','Finance'].includes(role)?['start_date']:[])];
+    const allowed=['employee_id','full_name','nickname','job_title','department','department_id','team','employment_status','can_view_detail',...(['Administrator','Director','HR','Finance'].includes(role)?['start_date']:[])];
     for (const row of r.data.employees) assert.deepEqual(Object.keys(row).sort(),allowed.sort());
     assert(!JSON.stringify(r.data).includes('secret-'));
   });
@@ -121,7 +121,7 @@ test('Unfiltered salary/promotion/skills listings respect leadership exclusion',
 for(const [role,id,status]of [['Employee','employee',200],['Employee','outside',403],['Team Lead','employee',403],['HR','employee',200],['HR','director',403],['Finance','director',403],['Director','director',200],['Administrator','director',200]])test(`${role} personal documents ${id}`,async()=>assert.equal((await request(role,'documents?employeeId='+id)).code,status));
 test('Read-only schema prerequisite verification matches the controlled setup',async()=>{
  const {verifySchema}=await import('../db/verify-schema.mjs');
- assert.deepEqual(await verifySchema(sql),{ok:true,tables:11});
+ assert.deepEqual(await verifySchema(sql),{ok:true,tables:12});
 });
 test('Normal GET paths execute no schema mutation',async()=>{
  // Include cold first requests from the start of this process (no warm-guard false pass).
@@ -218,4 +218,43 @@ test('Organisation, Leave, Documents, Skills and review screens retain their rea
  for(const path of ['org-chart','org-units','leave-requests?scope=approvals','leave-balances?employeeId=employee','documents?employeeId=employee','company-documents','skills?employeeId=employee','change-requests?scope=queue']){
   const r=await request('Administrator',path);assert.equal(r.code,200,path+': '+JSON.stringify(r.data));
  }
+});
+
+test('Independent Department registry has exactly seven stable IDs; existing staff remain unassigned',async()=>{
+ const rows=(await database.query('SELECT id,name FROM departments ORDER BY sort_order')).rows;
+ const {DEPARTMENTS}=await import('../shared/departments.mjs');assert.deepEqual(rows,DEPARTMENTS);
+ assert.equal((await value('SELECT count(*)::int AS n FROM employees WHERE department_id IS NOT NULL')).n,0);
+});
+test('Department assignment and clearing preserve org tree, lead scope, reporting and salary',async()=>{
+ const before=(await request('Administrator','org-chart')).data;
+ const units=(await request('Administrator','org-units')).data;
+ const scope=(await request('Team Lead','employees?id=employee')).code;
+ const employee=await value("SELECT department,team,manager_id,current_salary FROM employees WHERE employee_id='employee'");
+ for(const id of ['landscape','management',null]) {
+   const res=await request('HR','employees','PATCH',{employee_id:'employee',department_id:id});
+   assert.equal(res.code,200);assert.equal(res.data.employee.department_id,id);
+   assert.deepEqual((await request('Administrator','org-chart')).data,before);
+   assert.deepEqual((await request('Administrator','org-units')).data,units);
+   assert.equal((await request('Team Lead','employees?id=employee')).code,scope);
+   assert.deepEqual(await value("SELECT department,team,manager_id,current_salary FROM employees WHERE employee_id='employee'"),employee);
+ }
+});
+for(const role of ['Employee','Team Lead','Main Lead'])test(role+' cannot assign operational Department',async()=>{
+ assert.equal((await request(role,'employees','PATCH',{employee_id:actors[role],department_id:'landscape'})).code,403);
+});
+test('Invalid Departments rejected; create supports approved ID and Unassigned',async()=>{
+ assert.equal((await request('HR','employees','PATCH',{employee_id:'employee',department_id:'guessed-team'})).code,400);
+ assert.equal((await request('HR','employees','POST',{employee_id:'dept-invalid',full_name:'Fixture',department_id:'nope'})).code,400);
+ for(const [id,department_id] of [['dept-assigned','archviz'],['dept-unassigned',null]]) {
+  const res=await request('HR','employees','POST',{employee_id:id,full_name:'Department fixture',department_id});
+  assert.equal(res.code,201);assert.equal(res.data.employee.department_id,department_id);
+ }
+ await assert.rejects(database.query("DELETE FROM departments WHERE id='archviz'"));
+});
+test('Existing org move and reorder operations remain independent of Departments',async()=>{
+ const before=(await database.query('SELECT * FROM departments ORDER BY id')).rows;
+ const res=await request('Administrator','org-units','PATCH',{unit_name:'Other',parent_unit_name:'Dept',sort_order:3});
+ assert.equal(res.code,200);
+ assert.equal((await value("SELECT sort_order FROM org_units WHERE unit_name='Other'")).sort_order,3);
+ assert.deepEqual((await database.query('SELECT * FROM departments ORDER BY id')).rows,before);
 });
