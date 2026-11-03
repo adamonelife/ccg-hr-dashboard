@@ -414,3 +414,13 @@ INSERT INTO public.departments (id, name, sort_order) VALUES
 ALTER TABLE public.employees ADD COLUMN department_id TEXT
  REFERENCES public.departments(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 CREATE INDEX idx_employees_department_id ON public.employees(department_id);
+
+BEGIN;
+ALTER TABLE public.departments ADD COLUMN production_classification TEXT
+ CHECK (production_classification IN ('production','non_production'));
+-- Explicit classification by durable Department ID, never inferred from Team or labels.
+UPDATE public.departments SET production_classification = 'production'
+ WHERE id IN ('landscape','archviz','interactive','pelago');
+UPDATE public.departments SET production_classification = 'non_production'
+ WHERE id IN ('marketing','sales','management');
+COMMIT;

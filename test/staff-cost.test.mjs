@@ -33,6 +33,9 @@ test('Service feed rejects visitors, dashboard sessions, wrong credentials and c
  const res=response(),n=queries.length;await handleStaffCost({method:'GET',headers:{authorization:'Bearer '+process.env.OPERATIONS_STAFF_COST_TOKEN,'x-nallin-environment':'production'}},res);
  assert.equal(res.code,200);assert.equal(res.headers['Cache-Control'],'private, no-store');assert.equal(res.data.headcount,1);assert(queries.slice(n).every(q=>/^SELECT/.test(q)));assert.doesNotMatch(JSON.stringify(res.data),/Secret name|employee_id|current_salary/);
  const mutation=response();await handleStaffCost({method:'POST',headers:{}},mutation);assert.equal(mutation.code,405);
+ const hierarchy=response();await handleStaffCost({method:'GET',query:{version:'2'},headers:{authorization:'Bearer '+process.env.OPERATIONS_STAFF_COST_TOKEN,'x-nallin-environment':'production'}},hierarchy);
+ assert.equal(hierarchy.code,200);assert.equal(hierarchy.data.version,2);assert.equal(hierarchy.data.cells[0].department_id,null);assert.equal(hierarchy.data.cells[0].currencies[0].knownMonthlyGrossSalary,1000000);
+ assert.doesNotMatch(JSON.stringify(hierarchy.data),/Secret name|employee_id|current_salary/);
  delete process.env.OPERATIONS_STAFF_COST_TOKEN;
  const disabled=response();await handleStaffCost({method:'GET',headers:{}},disabled);assert.equal(disabled.code,503);
 });
