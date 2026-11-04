@@ -14,6 +14,7 @@ import { LanguageProvider, LanguageToggle, useT } from "./lib/i18n.jsx";
 import { useUI } from "./lib/presentation.jsx";
 import {
   Button,
+  WriteAccessProvider,
   Loading,
   PresentationProvider,
   useFeedback,
@@ -106,13 +107,13 @@ function AppInner() {
   }
 
   return (
-    <Dashboard
+    <WriteAccessProvider readOnly={Boolean(session.view_only)}><Dashboard
       session={session}
       onLoggedOut={() => {
         setSession(null);
         setStatus("anon");
       }}
-    />
+    /></WriteAccessProvider>
   );
 }
 
@@ -171,7 +172,9 @@ function Dashboard({ session, onLoggedOut }) {
     try {
       const res = await fetch("/api/auth/logout", { method: "POST" });
       if (!res.ok) throw new Error();
+      const result=await res.json();
       onLoggedOut();
+      if(result.logout_url)window.location.assign(result.logout_url);
     } catch {
       setLogoutError(u("logoutError"));
     } finally {
@@ -267,6 +270,7 @@ function Dashboard({ session, onLoggedOut }) {
             <Directory
               refreshKey={directoryRevision}
               role={session.role}
+              readOnly={Boolean(session.view_only)}
               onOpen={(id) => navigate({ name: "card", employeeId: id })}
               onOpenCard={(id) => navigate({ name: "card", employeeId: id })}
               onAdd={() => navigate({ name: "employee", employeeId: null })}

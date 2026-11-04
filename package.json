@@ -11,6 +11,7 @@
     "verify-schema": "node db/verify-schema.mjs"
   },
   "dependencies": {
+    "@vercel/oidc": "4.0.6",
     "busboy": "^1.6.0",
     "postgres": "^3.4.4",
     "react": "^18.3.1",

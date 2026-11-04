@@ -1,3 +1,4 @@
+import {MutationForm,useReadOnly} from "../components/ui.jsx";
 import { useUI } from "../lib/presentation.jsx";
 import {
   PageHeading,
@@ -29,7 +30,8 @@ export default function OrgChart({ role }) {
   const u = useUI();
   const { notify, confirm } = useFeedback();
   const [actionResult, setActionResult] = useState("");
-  const canManage = CAN_MANAGE_ORG_UNITS.includes(role);
+  const readOnly=useReadOnly();
+  const canManage = !readOnly && CAN_MANAGE_ORG_UNITS.includes(role);
   const [tree, setTree] = useState([]);
   const [reportingLines, setReportingLines] = useState([]);
   const [units, setUnits] = useState([]);
@@ -75,7 +77,7 @@ export default function OrgChart({ role }) {
       <div>
         <PageHeading title={t("orgChart.title")} />
         {tree.length === 0 && (
-          <p className="np-muted">{t("orgChart.noUnits")}</p>
+          <p className="np-muted">{t(canManage ? "orgChart.noUnits" : "orgChart.noUnitsReadOnly")}</p>
         )}
         {tree.map((node) => (
           <TreeNode
@@ -277,7 +279,7 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged, t }) {
         </div>
 
         {canManage && assigning && (
-          <form onSubmit={handleSaveLead} className="np-inline-form">
+          <MutationForm onSubmit={handleSaveLead} className="np-inline-form">
             <Select
               value={leadId}
               onChange={(e) => setLeadId(e.target.value)}
@@ -305,11 +307,11 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged, t }) {
             >
               {t("common.cancel")}
             </Button>
-          </form>
+          </MutationForm>
         )}
 
         {canManage && moving && (
-          <form onSubmit={handleMove} className="np-inline-form">
+          <MutationForm onSubmit={handleMove} className="np-inline-form">
             <Select
               value={newParent}
               onChange={(e) => setNewParent(e.target.value)}
@@ -337,11 +339,11 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged, t }) {
             >
               {t("common.cancel")}
             </Button>
-          </form>
+          </MutationForm>
         )}
 
         {canManage && reordering && (
-          <form onSubmit={handleSaveOrder} className="np-inline-form">
+          <MutationForm onSubmit={handleSaveOrder} className="np-inline-form">
             <Input
               type="number"
               placeholder={t("orgChart.orderPlaceholder")}
@@ -367,7 +369,7 @@ function TreeNode({ node, depth, employees, units, canManage, onChanged, t }) {
             >
               {t("common.cancel")}
             </Button>
-          </form>
+          </MutationForm>
         )}
         {error && (
           <p className="np-feedback np-feedback-error" role="alert">
@@ -439,7 +441,7 @@ function AddUnitForm({ units, employees, onAdded, t }) {
     <>
       <div className="np-panel">
         <h3 className="np-section-title">{t("orgChart.addUnit")}</h3>
-        <form onSubmit={handleSubmit} className="np-inline-form">
+        <MutationForm onSubmit={handleSubmit} className="np-inline-form">
           <Input
             placeholder={t("orgChart.unitNamePlaceholder")}
             value={unitName}
@@ -491,7 +493,7 @@ function AddUnitForm({ units, employees, onAdded, t }) {
           <Button type="submit" disabled={saving} className="np-button-primary">
             {saving ? t("common.adding") : t("common.add")}
           </Button>
-        </form>
+        </MutationForm>
         {error && (
           <p className="np-feedback np-feedback-error" role="alert">
             {error}
