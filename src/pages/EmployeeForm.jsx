@@ -1,3 +1,4 @@
+import {MutationForm,useReadOnly} from "../components/ui.jsx";
 import { useUI } from "../lib/presentation.jsx";
 import {
   Button,
@@ -514,7 +515,7 @@ export default function EmployeeForm({
           </p>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <MutationForm onSubmit={handleSubmit}>
           {SECTIONS.map((section) => (
             <fieldset key={section.titleKey} className="np-fieldset">
               <legend className="np-legend">
@@ -614,7 +615,7 @@ export default function EmployeeForm({
                   : t("employeeForm.createEmployee")}
             </Button>
           )}
-        </form>
+        </MutationForm>
 
         {isEdit && !selfServiceOnly && (
           <>
@@ -779,7 +780,7 @@ export function AccountPanel({ employeeId, defaultEmail, t }) {
           </p>
         )}
 
-        <form onSubmit={handleCreate} className="np-inline-form">
+        <MutationForm onSubmit={handleCreate} className="np-inline-form">
           <Input
             type="email"
             placeholder={t("employeeForm.emailPlaceholder")}
@@ -795,7 +796,7 @@ export function AccountPanel({ employeeId, defaultEmail, t }) {
                 ? t("employeeForm.resendLogin")
                 : t("employeeForm.createLogin")}
           </Button>
-        </form>
+        </MutationForm>
 
         {emailStatus && (
           <p
@@ -933,7 +934,7 @@ export function HistoryPanel({
           </Table>
         )}
 
-        <form onSubmit={handleAdd} className="np-inline-form">
+        <MutationForm onSubmit={handleAdd} className="np-inline-form">
           {columns.map((c) => (
             <Input
               key={c.key}
@@ -953,7 +954,7 @@ export function HistoryPanel({
           <Button type="submit" disabled={adding} className="np-button-primary">
             {adding ? t("common.adding") : t("common.add")}
           </Button>
-        </form>
+        </MutationForm>
       </div>
       <Feedback>{actionResult}</Feedback>
     </>

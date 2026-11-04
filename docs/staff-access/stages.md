@@ -46,7 +46,7 @@ There is intentionally no binding mutation API or employee-admin control in Gate
 
 ## Bound-record deletion gate
 
-The optional binding FKs deliberately restrict deletion of an employee or platform identity referenced by a binding; the binding itself cannot be hard-deleted. This has no effect before bindings are populated. Before the pilot, certify a reviewed bound-record lifecycle compatible with People Administrator deletion and platform account deletion, preserving historical audit evidence. Do not silently cascade away identity evidence, redefine deletion as offboarding, or enable live bindings while leaving this workflow unresolved. This restriction is a material Gate 2/3 review item, not a claim that the complete integration is certified.
+Gate 1 deliberately restricted referenced-record deletion. Gate 2 now resolves People employee deletion with atomic revocation/detachment, immutable original employee ID and preserved binding audit; failed deletion rolls everything back. The existing Administrator-only workflow and business-data cascades remain intact. Auth-user deletion still restricts historical binding references and requires separate reviewed platform lifecycle handling. See [handoff implementation and QA boundaries](handoff-qa.md). Neither isolated certification nor merging this code authorises live binding population or activation.
 
 ## Local verification
 

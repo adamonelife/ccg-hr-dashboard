@@ -18,6 +18,7 @@ import {
 const MANAGEMENT = ["Administrator", "Director", "HR", "Finance"];
 export default function Directory({
   role,
+  readOnly=false,
   refreshKey,
   onOpen,
   onOpenCard,
@@ -82,7 +83,7 @@ export default function Directory({
           <h1>{u("people")}</h1>
           <p>{u("directoryDescription")}</p>
         </div>
-        {management && (
+        {management && !readOnly && (
           <Button onClick={onAdd}>
             <span aria-hidden="true">＋</span>
             {u("add")}

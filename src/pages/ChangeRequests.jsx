@@ -10,6 +10,7 @@ import {
   EmptyState,
   Feedback,
   useFeedback,
+  useReadOnly,
 } from "../components/ui.jsx";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
@@ -86,6 +87,7 @@ export default function ChangeRequests() {
   );
 }
 function RequestCard({ request, onDecided }) {
+  const readOnly=useReadOnly();
   const u = useUI();
   const { notify, confirm } = useFeedback();
   const [actionResult, setActionResult] = useState("");
@@ -136,13 +138,14 @@ function RequestCard({ request, onDecided }) {
 
         <div className="np-actions">
           <Input
+            disabled={readOnly}
             placeholder={t("changeRequests.notePlaceholder")}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             className="np-input"
             label={t("changeRequests.notePlaceholder")}
           />
-          <Button
+          <Button mutation
             onClick={() => decide("Approved")}
             disabled={deciding}
             className="np-button-primary"
@@ -151,7 +154,7 @@ function RequestCard({ request, onDecided }) {
               ? t("changeRequests.working")
               : t("changeRequests.approve")}
           </Button>
-          <Button
+          <Button mutation
             onClick={() => decide("Rejected")}
             disabled={deciding}
             className="np-button-danger-soft"

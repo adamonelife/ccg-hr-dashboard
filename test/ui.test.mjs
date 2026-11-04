@@ -221,3 +221,21 @@ test('Employee Department select is independent of legacy org department and Tea
   await act(async()=>tree.unmount());
  }
 });
+
+test('Read-only provider hides mutation forms/buttons while preserving navigation and search',async()=>{
+ const {WriteAccessProvider,MutationForm}=await import(pathToFileURL(path.join(temp,'ui.mjs')).href);
+ const tree=await render(React.createElement(WriteAccessProvider,{readOnly:true},React.createElement('div',null,
+  React.createElement(Button,{mutation:true},'Delete'),React.createElement(Button,{type:'submit'},'Save'),
+  React.createElement(Button,{onClick(){}},'Back'),React.createElement(MutationForm,null,React.createElement('input',{name:'salary'})),
+  React.createElement(Input,{'aria-label':'Search people',value:'',onChange(){}}))));
+ assert.deepEqual(tree.root.findAllByType('button').map(text),['Back']);assert.equal(tree.root.findAllByType('form').length,0);assert.equal(tree.root.findAllByType('input').length,1);await act(async()=>tree.unmount());
+});
+test('Executive Directory/profile/Organisation retain read content and hide known administrative actions',async()=>{
+ const {WriteAccessProvider,OrgChart}=await import(pathToFileURL(path.join(temp,'ui.mjs')).href);
+ const session={role:'Administrator',employee_id:'actor',view_only:true};apiFixture(session);
+ for(const element of [React.createElement(Directory,{role:'Administrator',readOnly:true,onAdd(){}}),React.createElement(EmployeeCard,{employeeId:'employee',session,onBack(){},onEdit(){}}),React.createElement(OrgChart,{role:'Administrator'})]){
+  const tree=await render(React.createElement(WriteAccessProvider,{readOnly:true},element));
+  assert(!tree.root.findAllByType('button').some(b=>/Add employee|Edit employee|Delete employee|Add unit|Assign lead/.test(text(b))));
+  assert.equal(tree.root.findAllByType('form').length,0);await act(async()=>tree.unmount());
+ }
+});

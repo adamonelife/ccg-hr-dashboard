@@ -1,3 +1,4 @@
+import {MutationForm,useReadOnly} from "../components/ui.jsx";
 import { useUI } from "../lib/presentation.jsx";
 import {
   PageHeading,
@@ -26,7 +27,8 @@ export default function Leave({ session }) {
   const { notify, confirm } = useFeedback();
   const [actionResult, setActionResult] = useState("");
   const t = useT();
-  const canManageBalances = BALANCE_MANAGE_ROLES.includes(session?.role);
+  const readOnly=useReadOnly();
+  const canManageBalances = !readOnly && BALANCE_MANAGE_ROLES.includes(session?.role);
   return (
     <>
       <div>
@@ -196,7 +198,7 @@ function RequestForm({ employeeId, onSubmitted }) {
   }
   return (
     <>
-      <form
+      <MutationForm
         onSubmit={handleSubmit}
         style={{
           marginTop: "var(--space-16)",
@@ -250,7 +252,7 @@ function RequestForm({ employeeId, onSubmitted }) {
           className="np-input"
           label={t("leave.reasonPlaceholder")}
         />
-        <Button type="submit" disabled={saving} className="np-button-primary">
+        <Button mutation type="submit" disabled={saving} className="np-button-primary">
           {saving ? t("leave.submitting") : t("leave.requestLeave")}
         </Button>
         {error && (
@@ -258,7 +260,7 @@ function RequestForm({ employeeId, onSubmitted }) {
             {error}
           </p>
         )}
-      </form>
+      </MutationForm>
       <Feedback>{actionResult}</Feedback>
     </>
   );
@@ -332,7 +334,7 @@ function Approvals() {
                 <td className="np-td">{r.end_date}</td>
                 <td className="np-td">{r.reason}</td>
                 <td className="np-td">
-                  <Button
+                  <Button mutation
                     onClick={() => handleDecide(r.id, "Approved")}
                     disabled={actingId === r.id}
                     className="np-button-secondary np-button-small"
@@ -341,7 +343,7 @@ function Approvals() {
                       ? t("common.saving")
                       : t("leave.approve")}
                   </Button>{" "}
-                  <Button
+                  <Button mutation
                     onClick={() => handleDecide(r.id, "Rejected")}
                     disabled={actingId === r.id}
                     className="np-button-secondary np-button-small"
@@ -461,7 +463,7 @@ function ManageBalances() {
             className="np-input"
             label={t("leave.allocatedDaysPlaceholder")}
           />
-          <Button
+          <Button mutation
             onClick={handleSave}
             disabled={saving}
             className="np-button-primary"

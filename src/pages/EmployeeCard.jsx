@@ -1,3 +1,4 @@
+import {MutationForm,useReadOnly} from "../components/ui.jsx";
 import { departmentName } from "../../shared/departments.mjs";
 import { visibleNickname } from "../lib/employee-identity.js";
 import { useEffect, useState } from "react";
@@ -154,7 +155,7 @@ export default function EmployeeCard({
     ...(permissions?.can_view_compensation ? ["compensation"] : []),
     "skills",
   ];
-  const canEdit = Boolean(permissions?.editable_fields?.length);
+  const canEdit = !session.view_only && Boolean(permissions?.editable_fields?.length);
   const groups = {
     overview: [
       "employee_id",
@@ -259,7 +260,7 @@ export default function EmployeeCard({
             {canEdit && (
               <Button onClick={() => onEdit(employeeId)}>{u("edit")}</Button>
             )}
-            {session.role === "Administrator" && (
+            {!session.view_only && session.role === "Administrator" && (
               <details className="np-more">
                 <summary>{u("more")} ⋯</summary>
                 <div>
@@ -430,7 +431,7 @@ export default function EmployeeCard({
             </>
           )}
         </div>
-        {accountOpen && session.role === "Administrator" && (
+        {accountOpen && !session.view_only && session.role === "Administrator" && (
           <AccountPanel
             employeeId={employeeId}
             defaultEmail={employee.email}
@@ -561,6 +562,7 @@ export function DesignDisciplinePanel({
   const { notify, confirm } = useFeedback();
   const [actionResult, setActionResult] = useState("");
   const t = useT();
+  const readOnly=useReadOnly();
   const entries = skills.filter(
     (s) => s.category === DESIGN_DISCIPLINE_CATEGORY,
   );
@@ -652,7 +654,7 @@ export function DesignDisciplinePanel({
         <div className="np-discipline-grid">
           {DISCIPLINE_ITEMS.map((item) => (
             <label key={item} className="np-checkbox-field">
-              <Input
+              <Input disabled={readOnly}
                 type="checkbox"
                 checked={checked[item]}
                 onChange={(e) =>
@@ -664,7 +666,7 @@ export function DesignDisciplinePanel({
               />
               {item}
               {checked[item] && (
-                <Select
+                <Select disabled={readOnly}
                   aria-label={`${item} ${u("level")}`}
                   value={levels[item]}
                   onChange={(e) =>
@@ -684,7 +686,7 @@ export function DesignDisciplinePanel({
               )}
             </label>
           ))}
-          <Button
+          <Button mutation
             onClick={handleSave}
             disabled={saving}
             className="np-button-primary"
@@ -750,7 +752,7 @@ export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
   }
   return (
     <>
-      <form onSubmit={handleSubmit} className="np-panel">
+      <MutationForm onSubmit={handleSubmit} className="np-panel">
         <h3 className="np-section-title">{t("employeeCard.addEntry")}</h3>
         {selfServiceOnly && (
           <p className="np-muted">{t("employeeCard.newEntryNote")}</p>
@@ -810,11 +812,11 @@ export function AddSkillForm({ employeeId, onAdded, selfServiceOnly }) {
             className="np-input"
             label={t("common.notesOptional")}
           />
-          <Button type="submit" disabled={saving} className="np-button-primary">
+          <Button mutation type="submit" disabled={saving} className="np-button-primary">
             {saving ? t("common.adding") : t("common.add")}
           </Button>
         </div>
-      </form>
+      </MutationForm>
       <Feedback>{actionResult}</Feedback>
     </>
   );
@@ -887,7 +889,7 @@ export function SkillRow({ entry, onChanged, selfServiceOnly }) {
     return (
       <>
         <li className="np-skill-row">
-          <form onSubmit={handleSave} className="np-inline-form">
+          <MutationForm onSubmit={handleSave} className="np-inline-form">
             <Select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -930,21 +932,21 @@ export function SkillRow({ entry, onChanged, selfServiceOnly }) {
               className="np-input"
               label={t("common.notes")}
             />
-            <Button
+            <Button mutation
               type="submit"
               disabled={saving}
               className="np-button-primary"
             >
               {saving ? t("common.saving") : t("common.save")}
             </Button>
-            <Button
+            <Button mutation
               type="button"
               onClick={() => setEditing(false)}
               className="np-button-secondary"
             >
               {t("common.cancel")}
             </Button>
-          </form>
+          </MutationForm>
           {submittedMsg && (
             <p className="np-feedback np-feedback-success" role="status">
               {submittedMsg}
@@ -969,13 +971,13 @@ export function SkillRow({ entry, onChanged, selfServiceOnly }) {
           {entry.notes && <span className="np-muted"> ({entry.notes})</span>}
         </span>
         <span className="np-actions">
-          <Button
+          <Button mutation
             onClick={() => setEditing(true)}
             className="np-button-secondary np-button-small"
           >
             {t("common.edit")}
           </Button>
-          <Button
+          <Button mutation
             onClick={handleDelete}
             disabled={saving}
             className="np-button-secondary np-button-small"

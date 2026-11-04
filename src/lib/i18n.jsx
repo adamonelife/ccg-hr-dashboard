@@ -336,6 +336,7 @@ const TRANSLATIONS = {
     // ── orgChart ──
     'orgChart.title': 'Organisation structure',
     'orgChart.noUnits': 'No org units defined yet — add one below.',
+    'orgChart.noUnitsReadOnly': 'No org units defined yet.',
     'orgChart.reportingLines': 'Reporting lines',
     'orgChart.employee': 'Employee',
     'orgChart.title_': 'Title',
@@ -619,6 +620,7 @@ const TRANSLATIONS = {
     // ── orgChart ──
     'orgChart.title': 'Struktur organisasi',
     'orgChart.noUnits': 'Belum ada unit organisasi — tambahkan di bawah.',
+    'orgChart.noUnitsReadOnly': 'Belum ada unit organisasi.',
     'orgChart.reportingLines': 'Garis pelaporan',
     'orgChart.employee': 'Karyawan',
     'orgChart.title_': 'Jabatan',

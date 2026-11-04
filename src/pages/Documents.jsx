@@ -1,3 +1,4 @@
+import {MutationForm,useReadOnly} from "../components/ui.jsx";
 import { useUI } from "../lib/presentation.jsx";
 import {
   PageHeading,
@@ -237,7 +238,7 @@ function DocumentsPanel({ employeeId }) {
                   <td className="np-td">{d.expiry_date || ""}</td>
                   <td className="np-td">{d.notes}</td>
                   <td className="np-td">
-                    <Button
+                    <Button mutation
                       disabled={deletingId === d.id}
                       onClick={() => handleDelete(d.id)}
                       className="np-button-secondary np-button-small"
@@ -317,7 +318,7 @@ function AddDocumentForm({ employeeId, onAdded }) {
   }
   return (
     <>
-      <form
+      <MutationForm
         onSubmit={handleSubmit}
         style={{
           marginTop: "var(--space-8)",
@@ -371,7 +372,7 @@ function AddDocumentForm({ employeeId, onAdded }) {
           className="np-input"
           label={t("common.notesOptional")}
         />
-        <Button type="submit" disabled={saving} className="np-button-primary">
+        <Button mutation type="submit" disabled={saving} className="np-button-primary">
           {saving ? t("common.adding") : t("documents.addDocument")}
         </Button>
         {error && (
@@ -379,7 +380,7 @@ function AddDocumentForm({ employeeId, onAdded }) {
             {error}
           </p>
         )}
-      </form>
+      </MutationForm>
       <Feedback>{actionResult}</Feedback>
     </>
   );
@@ -494,7 +495,7 @@ function CompanyDocuments({ canUpload }) {
                       <td className="np-td">{d.notes}</td>
                       {canUpload && (
                         <td className="np-td">
-                          <Button
+                          <Button mutation
                             disabled={deletingId === d.id}
                             onClick={() => handleDelete(d.id)}
                             className="np-button-secondary np-button-small"
@@ -578,7 +579,7 @@ function AddCompanyDocumentForm({ onAdded }) {
             role: accessRole,
           })}
         </p>
-        <form onSubmit={handleSubmit} className="np-inline-form">
+        <MutationForm onSubmit={handleSubmit} className="np-inline-form">
           <Select
             value={accessRole}
             onChange={(e) => setAccessRole(e.target.value)}
@@ -628,10 +629,10 @@ function AddCompanyDocumentForm({ onAdded }) {
             className="np-input"
             label={t("common.notesOptional")}
           />
-          <Button type="submit" disabled={saving} className="np-button-primary">
+          <Button mutation type="submit" disabled={saving} className="np-button-primary">
             {saving ? t("common.adding") : t("documents.addDocument")}
           </Button>
-        </form>
+        </MutationForm>
         {error && (
           <p className="np-feedback np-feedback-error" role="alert">
             {error}

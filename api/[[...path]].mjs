@@ -18,6 +18,7 @@
 // Routes that need the raw, unparsed body (e.g. webhook HMAC verification)
 // go in RAW_BODY_ROUTES and get req.rawBody instead of req.body.
 
+import {handlePeopleHandoff} from '../lib/people-handoff-routes.mjs';
 import { handleHealth } from '../lib/health.mjs';
 import { handleStaffCost } from '../lib/staff-cost.mjs';
 import { handleLogin, handleLogout, handleMe, handleSetPassword, requireAuth, requireRole } from '../lib/auth.mjs';
@@ -46,6 +47,7 @@ const RAW_BODY_ROUTES = new Set([]);
 // Wrap anything sensitive in requireAuth(...) — everything except
 // health/auth/login should be wrapped once real HR data is involved.
 const routes = {
+  ...Object.fromEntries(['start','entry','access','issue','callback'].map(action=>['nallin-sso/'+action,handlePeopleHandoff])),
   health: handleHealth,
   'integrations/operations/staff-cost': handleStaffCost,
   'auth/login': handleLogin,

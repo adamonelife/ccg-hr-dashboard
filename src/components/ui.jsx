@@ -8,7 +8,13 @@ import {
   useState,
 } from "react";
 import { useUI } from "../lib/presentation.jsx";
-export function Button({ variant, className = "", type = "button", ...props }) {
+const ReadOnlyContext=createContext(false);
+export const useReadOnly=()=>useContext(ReadOnlyContext);
+export function WriteAccessProvider({readOnly=false,children}){return <ReadOnlyContext.Provider value={readOnly}>{children}</ReadOnlyContext.Provider>;}
+export function MutationForm(props){return useReadOnly()?null:<form {...props}/>;}
+export function Button({ mutation=false, variant, className = "", type = "button", ...props }) {
+  const readOnly=useReadOnly();
+  if(readOnly&&(mutation||type==="submit"))return null;
   // Resolve the legacy presentation class at this boundary so a control
   // has one variant, including hover/disabled states, rather than two skins.
   const variantPattern =
