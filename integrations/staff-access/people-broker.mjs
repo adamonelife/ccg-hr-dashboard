@@ -1,6 +1,7 @@
 // Canonical Staff Access companion. Install in its reviewed deployment behind
 // its own OFF-by-default flag; not imported by the People application.
 import crypto from "node:crypto";
+import {getVercelOidcToken} from '@vercel/oidc';
 export function createPeopleBroker({ env = process.env, transport = fetch }) {
   const enabled = () => env.PEOPLE_STAFF_ACCESS_ENABLED === "true";
   function origin() {
@@ -30,9 +31,12 @@ export function createPeopleBroker({ env = process.env, transport = fetch }) {
       .createHmac("sha256", env.PEOPLE_BROKER_SECRET)
       .update(timestamp + "\n" + data)
       .digest("hex");
+    let machineToken;
+    if(env.VERCEL_ENV){try{machineToken=await getVercelOidcToken();}catch{}}
     const response = await transport(origin() + "/api/nallin-sso/" + action, {
       method: "POST",
       headers: {
+        ...(machineToken ? {'x-vercel-trusted-oidc-idp-token':machineToken} : {}),
         "content-type": "application/json",
         "x-people-timestamp": timestamp,
         "x-people-signature": signature,

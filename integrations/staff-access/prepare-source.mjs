@@ -43,7 +43,7 @@ const peopleBroker=()=>import('../lib/people-broker.mjs').then(m=>m.createPeople
     "try{return await supabase('/functions/v1/nallin-staff-admin?scope=access',{headers:{Authorization:`Bearer ${session.accessToken}`,'x-region':'ap-northeast-2'}})}finally";
   replace(
     old,
-    "try{const resolved=await supabase('/functions/v1/nallin-staff-admin?scope=access',{headers:{Authorization:`Bearer ${session.accessToken}`,'x-region':'ap-northeast-2'}});if(peopleEnabled()){const grant=await (await peopleBroker()).entitlement(session);if(grant)resolved.entitlements=[...resolved.entitlements.filter(x=>x.module!=='hr'),grant];}return resolved;}finally",
+    "try{let resolved;try{resolved=await supabase('/functions/v1/nallin-staff-admin?scope=access',{headers:{Authorization:`Bearer ${session.accessToken}`,'x-region':'ap-northeast-2'}});}catch(error){if(!peopleEnabled())throw error;const grant=await (await peopleBroker()).entitlement(session);if(!/^[0-9a-f-]{36}$/i.test(grant?.platformUserId||''))throw error;return{user:{id:grant.platformUserId,displayName:'Staff member'},entitlements:[grant]};}if(peopleEnabled()){const grant=await (await peopleBroker()).entitlement(session);if(grant)resolved.entitlements=[...resolved.entitlements.filter(x=>x.module!=='hr'),grant];}return resolved;}finally",
   );
   replace(
     "function handoff(res,session,resolved,module,returnTo){",

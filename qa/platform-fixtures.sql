@@ -12,3 +12,5 @@ CREATE ROLE anon;CREATE ROLE authenticated;CREATE SCHEMA auth;CREATE SCHEMA plat
  INSERT INTO platform.module_registry VALUES('hr','active');INSERT INTO platform.module_access VALUES('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000010','hr','STANDARD','people',true);
  INSERT INTO employees(employee_id,full_name,permission_role,employment_status,profile_setup_completed_at) VALUES('QA-ONE','QA employee','Director','Active',now()),('QA-OTHER','Other fixture','Employee','Active',now());
  INSERT INTO user_accounts(employee_id,email,password_hash) VALUES('QA-ONE','qa@example.invalid','fixture-account-initialised'),('QA-OTHER','other@example.invalid','fixture-account-initialised');
+
+ALTER TABLE platform.memberships ADD COLUMN role text NOT NULL DEFAULT 'reviewer';

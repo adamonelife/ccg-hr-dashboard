@@ -100,7 +100,7 @@ const provider = async (url, opts) => {
 async function restore() {
   Object.assign(process.env, fixtureEnv);
   await database.exec(
-    `UPDATE platform.module_access SET active=true,access_level='STANDARD',module_role='people'; UPDATE platform.module_registry SET lifecycle='active'; UPDATE platform.account_controls SET status='active'; UPDATE platform.memberships SET active=true; UPDATE employees SET permission_role='Director',employment_status='Active',profile_setup_completed_at=now() WHERE employee_id='QA-ONE'; UPDATE user_accounts SET password_hash='fixture-account-initialised' WHERE employee_id='QA-ONE';`,
+    `UPDATE platform.module_access SET active=true,access_level='STANDARD',module_role='people'; UPDATE platform.module_registry SET lifecycle='active'; UPDATE platform.account_controls SET status='active'; UPDATE platform.memberships SET active=true,role='reviewer'; UPDATE employees SET permission_role='Director',employment_status='Active',profile_setup_completed_at=now() WHERE employee_id='QA-ONE'; UPDATE user_accounts SET password_hash='fixture-account-initialised' WHERE employee_id='QA-ONE';`,
   );
   globalThis.fetch = provider;
 }
@@ -138,11 +138,12 @@ before(async () => {
  CREATE TABLE auth.users(id uuid primary key);CREATE TABLE auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz);
  CREATE TABLE platform.organisations(id uuid primary key);CREATE TABLE platform.memberships(organisation_id uuid,user_id uuid,active boolean,UNIQUE(organisation_id,user_id));
  CREATE TABLE platform.internal_identity_bindings(auth_user_id uuid primary key,organisation_id uuid,internal_user_id text);
+ ALTER TABLE platform.memberships ADD COLUMN role text NOT NULL DEFAULT 'reviewer';
  CREATE TABLE platform.account_controls(user_id uuid primary key,status text);
  CREATE TABLE platform.module_access(user_id uuid,organisation_id uuid,module text,access_level text,module_role text,active boolean);
  CREATE TABLE platform.module_registry(module text primary key,lifecycle text);
  INSERT INTO auth.users VALUES('${id}'),('${other}');INSERT INTO auth.sessions VALUES('${sid}','${id}',NULL);
- INSERT INTO platform.organisations VALUES('${org}');INSERT INTO platform.memberships VALUES('${org}','${id}',true);
+ INSERT INTO platform.organisations VALUES('${org}');INSERT INTO platform.memberships(organisation_id,user_id,active) VALUES('${org}','${id}',true);
  INSERT INTO platform.internal_identity_bindings VALUES('${id}','${org}','usr_qa_one');INSERT INTO platform.account_controls VALUES('${id}','active');
  INSERT INTO platform.module_registry VALUES('hr','active');INSERT INTO platform.module_access VALUES('${id}','${org}','hr','STANDARD','people',true);
  INSERT INTO employees(employee_id,full_name,permission_role,employment_status,profile_setup_completed_at) VALUES('QA-ONE','QA employee','Director','Active',now()),('QA-OTHER','Other fixture','Employee','Active',now());
@@ -238,6 +239,18 @@ test("Replay, missing/wrong browser nonce and cross-origin callback are denied",
     ).code,
     403,
   );
+});
+test('A stale invalid People cookie does not lock out a freshly verified identity',async()=>{
+ for(const payload of [{employee_id:'QA-OTHER',user:'retired-account@example.invalid',role:'Employee'},{employee_id:'QA-OTHER',user:'other@example.invalid',auth_source:'nallin',context_id:'1'.repeat(64)}]){
+ const stale='hr_session='+auth.createSessionToken(payload);
+ assert.equal((await request('auth/me','GET',undefined,stale)).code,401);
+ assert.equal((await launch(stale)).callback.code,303);
+ }
+});
+test('Unverified previous-identity metadata fails closed during handoff',async()=>{
+ const old='hr_session='+auth.createSessionToken({employee_id:'QA-OTHER',user:'other@example.invalid',auth_source:'nallin',context_id:'1'.repeat(64)});
+ failNext(/SELECT ctx.id FROM platform.people_auth_contexts ctx/);
+ const result=await launch(old);assert.equal(result.callback.code,403);assert(!cookies(result.callback).includes('hr_session='));
 });
 test("Cross-user and bootstrap sessions are never silently replaced", async () => {
   for (const old of [
@@ -390,6 +403,16 @@ test("Incomplete setup remains incomplete for ordinary Staff Access entry", asyn
   assert.equal(me.code, 200);
   assert.equal(me.data.profile_setup_completed_at, null);
   await restore();
+});
+test('Canonical Executive membership overrides writable People grant and legacy entry without changing People role',async()=>{
+ await database.exec("UPDATE platform.memberships SET role='executive'; UPDATE platform.module_access SET module_role='people',access_level='ADMIN'");
+ const cookie=cookies((await launch()).callback);
+ const me=await request('auth/me','GET',undefined,cookie);assert.equal(me.data.role,'Director');assert.equal(me.data.view_only,true);
+ assert.equal((await request('employees','PATCH',{employee_id:'QA-ONE',job_title:'must not write'},cookie)).code,403);
+ const legacy='hr_session='+auth.createSessionToken({employee_id:'QA-ONE',user:'qa@example.invalid',role:'Director'});
+ assert.equal((await request('auth/me','GET',undefined,legacy)).data.view_only,true);
+ assert.equal((await request('employees','PATCH',{employee_id:'QA-ONE',job_title:'must not write'},legacy)).code,403);
+ await restore();
 });
 test("Context logout revokes locally and returns canonical Staff Access logout", async () => {
   const cookie = cookies((await launch()).callback),
